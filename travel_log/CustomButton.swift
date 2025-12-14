@@ -20,7 +20,7 @@ struct CustomButton: View {
             action()
         }, label: {
             Text(title)
-                .foregroundColor(.black)
+                .foregroundStyle(.black)
                 .padding()
                 .frame(width: 330, height: 75)
                 .overlay(

@@ -11,7 +11,6 @@ import CoreLocation
 import Combine
 
 struct StartView: View {
-
     @StateObject var locationManager = LocationManager()
 
     @State private var coordinateRegion = MKCoordinateRegion(
@@ -24,41 +23,47 @@ struct StartView: View {
     @State private var hasCenteredOnce = false
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        VStack(spacing: 12) {
+            ZStack(alignment: .bottom) {
 
-            // Map（骨子そのまま）
-            Map(
-                coordinateRegion: $coordinateRegion,
-                interactionModes: .all,
-                showsUserLocation: true,
-                userTrackingMode: $userTrackingMode
-            )
-            .ignoresSafeArea()
-            .onAppear {
-                locationManager.requestWhenInUseAuthorization()
-                locationManager.startUpdatingLocationIfPossible()
-            }
-            .onChange(of: locationManager.location) { loc in
-                guard let loc else { return }
-
-                // 最初の一回だけ現在地へ寄せる（以降はユーザー操作を邪魔しない）
-                if !hasCenteredOnce {
-                    hasCenteredOnce = true
-                    coordinateRegion = MKCoordinateRegion(
-                        center: loc.coordinate,
-                        latitudinalMeters: 800,
-                        longitudinalMeters: 800
-                    )
+                // Map（骨子そのまま）
+                Map(
+                    coordinateRegion: $coordinateRegion,
+                    interactionModes: .all,
+                    showsUserLocation: true,
+                    userTrackingMode: $userTrackingMode
+                )
+                .ignoresSafeArea()
+                .onAppear {
+                    locationManager.requestWhenInUseAuthorization()
+                    locationManager.startUpdatingLocationIfPossible()
+                }
+                .onChange(of: locationManager.location) { loc in
+                    guard let loc else { return }
+                    
+                    // 最初の一回だけ現在地へ寄せる（以降はユーザー操作を邪魔しない）
+                    if !hasCenteredOnce {
+                        hasCenteredOnce = true
+                        coordinateRegion = MKCoordinateRegion(
+                            center: loc.coordinate,
+                            latitudinalMeters: 800,
+                            longitudinalMeters: 800
+                        )
+                    }
                 }
             }
-
-            // 下部UI（CustomButton + Spacer をZStack内へ）
-            VStack(spacing: 12) {
-                CustomButton(title: "旅を始める！", action: { print("hello") })
-                Spacer(minLength: 80)
+            CustomButton(title: "旅を始める！", action: { print("hello") })
+            
+            HStack{
+                CustomButton2(title:"写真を残す",action:{print("hello")}, imagename:"camera.fill")
+                CustomButton2(title:"コメントを残す",action:{print("hello")}, imagename:"text.bubble")
+                
             }
-            .padding(.bottom, 12)
+            Spacer(minLength:100)
+            
         }
+        .background(Color.customBackgroundColor)
+        .ignoresSafeArea()
     }
 }
 
