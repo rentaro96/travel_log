@@ -9,9 +9,15 @@ import SwiftUI
 import MapKit
 import CoreLocation
 import Combine
+import CoreMotion
 
 struct StartView: View {
     @StateObject var locationManager = LocationManager()
+    @State private var pedometer: CMPedometer? = CMPedometer()
+    @State private var isRunning = false
+    @State private var isPaused  = false   // 起動時は false
+    @State private var steps: Int = 0
+    @State private var baselineSteps: Int = 0
 
     @State private var coordinateRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 35.6895468, longitude: 139.7673068),
@@ -21,11 +27,12 @@ struct StartView: View {
 
     @State private var userTrackingMode: MapUserTrackingMode = .follow
     @State private var hasCenteredOnce = false
+    
 
     var body: some View {
         VStack(spacing: 12) {
             ZStack(alignment: .bottom) {
-
+                
                 // Map（骨子そのまま）
                 Map(
                     coordinateRegion: $coordinateRegion,
@@ -52,7 +59,54 @@ struct StartView: View {
                     }
                 }
             }
-            CustomButton(title: "旅を始める！", action: { print("hello") })
+            
+            
+            if isRunning {
+                HStack(spacing: 20) {
+                    CustomButton3(title: "終了") {
+                        pedometer?.stopUpdates()
+                        isRunning = false
+                        isPaused = false
+                    }
+                    
+                    if isPaused {
+                        CustomButton3(title: "再開") {
+                            guard CMPedometer.isStepCountingAvailable() else { return }
+                            
+                            pedometer?.startUpdates(from: Date()) { data, error in
+                                if let steps = data?.numberOfSteps {
+                                    print("steps:", steps)
+                                }
+                            }
+                            
+                            isPaused = false
+                        }
+                    } else {
+                        CustomButton3(title: "停止") {
+                            pedometer?.stopUpdates()
+                            isPaused = true
+                        }
+                    }
+                }
+                
+            } else {
+                // 旅を始める
+                CustomButton(title: "旅を始める！") {
+                    guard CMPedometer.isStepCountingAvailable() else { return }
+                    
+                    pedometer?.startUpdates(from: Date()) { data, error in
+                        if let steps = data?.numberOfSteps {
+                            print("steps:", steps)
+                        }
+                    }
+                    
+                    isRunning = true
+                    isPaused = false  // ← 念のため初期化
+                }
+            }
+            
+            
+            
             
             HStack{
                 Spacer()
