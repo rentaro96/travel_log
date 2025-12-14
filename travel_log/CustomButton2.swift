@@ -21,7 +21,7 @@ struct CustomButton2: View {
             action()
         })
         {
-            VStack{
+            VStack(spacing: 8){
                 Image(systemName: imagename)
                     .resizable()
                     .scaledToFit()
@@ -30,6 +30,8 @@ struct CustomButton2: View {
                 Text(title)
                     .foregroundStyle(.black)
                     .font(Font.buttonFont(size: 20))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             .frame(width: 170, height: 120)
         }

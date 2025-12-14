@@ -55,11 +55,13 @@ struct StartView: View {
             CustomButton(title: "旅を始める！", action: { print("hello") })
             
             HStack{
+                Spacer()
                 CustomButton2(title:"写真を残す",action:{print("hello")}, imagename:"camera.fill")
-                    .padding(-10)
+                Spacer()
                 CustomButton2(title:"書き残す",action:{print("hello")}, imagename:"text.bubble")
-                    .padding(-10)
+                Spacer()
                 CustomButton2(title:"書き残す",action:{print("hello")}, imagename:"text.bubble")
+                Spacer()
             }
             Spacer(minLength:100)
             
