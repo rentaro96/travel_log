@@ -25,13 +25,13 @@ struct CustomButton2: View {
                 Image(systemName: imagename)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 60, height: 60)
+                    .frame(width: 55, height: 55)
                     .foregroundStyle(.black)
                 Text(title)
                     .foregroundStyle(.black)
-                    .font(Font.buttonFont(size: 28))
+                    .font(Font.buttonFont(size: 20))
             }
-            .frame(width: 120, height: 120)
+            .frame(width: 170, height: 120)
         }
     }
 }

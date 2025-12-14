@@ -56,7 +56,8 @@ struct StartView: View {
             
             HStack{
                 CustomButton2(title:"写真を残す",action:{print("hello")}, imagename:"camera.fill")
-                CustomButton2(title:"コメントを残す",action:{print("hello")}, imagename:"text.bubble")
+                    .padding(-25)
+                CustomButton2(title:"書き残す",action:{print("hello")}, imagename:"text.bubble")
                 
             }
             Spacer(minLength:100)
