@@ -13,8 +13,16 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
 //        self.manager.startUpdatingLocation()
     }
     
-    func requestLocationAuthorization() {
+    func requestWhenInUseAuthorization() {
         manager.requestWhenInUseAuthorization()
+    }
+    
+    func startUpdatingLocation() {
+        manager.startUpdatingLocation()
+    }
+
+    func stopUpdatingLocation() {
+        manager.stopUpdatingLocation()
     }
     
     // Optionally handle authorization status updates
