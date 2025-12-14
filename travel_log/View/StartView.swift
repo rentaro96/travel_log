@@ -60,7 +60,7 @@ struct StartView: View {
                 Spacer()
                 CustomButton2(title:"書き残す",action:{print("hello")}, imagename:"text.bubble")
                 Spacer()
-                CustomButton2(title:"書き残す",action:{print("hello")}, imagename:"text.bubble")
+                CustomButton2(title:"情報",action:{print("hello")}, imagename:"info.circle")
                 Spacer()
             }
             Spacer(minLength:100)

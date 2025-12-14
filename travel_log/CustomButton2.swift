@@ -33,7 +33,7 @@ struct CustomButton2: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .frame(width: 170, height: 120)
+            .frame(width: 120, height: 120)
         }
     }
 }
