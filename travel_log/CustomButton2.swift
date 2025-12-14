@@ -24,14 +24,14 @@ struct CustomButton2: View {
             VStack{
                 Image(systemName: imagename)
                     .resizable()
+                    .scaledToFit()
                     .frame(width: 60, height: 60)
-                    .padding(-20)
                     .foregroundStyle(.black)
                 Text(title)
                     .foregroundStyle(.black)
-                    .frame(width: 120, height: 120)
                     .font(Font.buttonFont(size: 28))
             }
+            .frame(width: 120, height: 120)
         }
     }
 }
