@@ -15,7 +15,7 @@ struct StartView: View {
     @StateObject var locationManager = LocationManager()
         @State private var coordinateRegion = MKCoordinateRegion(//地図の表示領域を指定するための状態変数
             center: CLLocationCoordinate2D(
-                latitude: locationManager != nil ? locationManager.location?.coordinate.latitude : 35.6895468,
+                latitude: 35.6895468,
                 longitude: 139.7673068
             ), //東京の座標
             latitudinalMeters: 10000, //表示範囲。緯度10km
@@ -38,6 +38,13 @@ struct StartView: View {
                         .onAppear{
                             locationManager.requestWhenInUseAuthorization() //位置情報を使用する許可を求める為に使用
                             locationManager.startUpdatingLocation() //デバイスの現在位置の更新を開始するために使用
+                        }
+                        .onReceive(locationManager.$location.compactMap { $0 }) { loc in
+                            coordinateRegion = MKCoordinateRegion(
+                                center: loc.coordinate,
+                                latitudinalMeters: 1000,
+                                longitudinalMeters: 1000
+                            )
                         }
                     }
                 }
