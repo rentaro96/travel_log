@@ -11,7 +11,8 @@ import CoreLocation
 import Combine
 
 struct StartView: View {
-    @State private var locationManager = CLLocationManager()//デバイスの位置情報や方向を管理するクラス
+
+    @StateObject var locationManager = LocationManager()
         @State private var coordinateRegion = MKCoordinateRegion(//地図の表示領域を指定するための状態変数
             center: CLLocationCoordinate2D(
                 latitude: 35.6809591,
