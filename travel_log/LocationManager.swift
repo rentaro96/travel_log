@@ -4,6 +4,7 @@ import CoreLocation
 import SwiftUI
 
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    @Published var location: CLLocation? = nil
     private let manager = CLLocationManager()
     
     override init() {
@@ -26,7 +27,10 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     // Optionally handle authorization status updates
-    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+    func locationManager(_ manager: CLLocationManager, didUpdateLoactions locations: [CLLocation]) {
         // Handle changes if needed
+        if let location = locations.last {
+            self.location = location
+        }
     }
 }
