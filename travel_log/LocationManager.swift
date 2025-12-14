@@ -1,52 +1,86 @@
 import Foundation
-import Combine
 import CoreLocation
-import SwiftUI
+import Combine
 
-class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
-    @Published var location: CLLocation? = nil
+@MainActor
+final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+
+    @Published private(set) var authorizationStatus: CLAuthorizationStatus = .notDetermined
+    @Published private(set) var locationServicesEnabled: Bool = CLLocationManager.locationServicesEnabled()
+    @Published private(set) var lastErrorMessage: String?
+    @Published private(set) var location: CLLocation?
+
     private let manager = CLLocationManager()
-    
+
     override init() {
         super.init()
         manager.delegate = self
-//        self.manager.requestWhenInUseAuthorization()
-//        self.manager.startUpdatingLocation()
-    }
-    
-    func requestWhenInUseAuthorization() {
-        manager.requestWhenInUseAuthorization()
-    }
-    
-    func startUpdatingLocation() {
-        manager.startUpdatingLocation()
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.distanceFilter = 10 // 10m動いたら更新
+        refreshStatus()
     }
 
-    func stopUpdatingLocation() {
-        manager.stopUpdatingLocation()
+    func refreshStatus() {
+        locationServicesEnabled = CLLocationManager.locationServicesEnabled()
+        authorizationStatus = manager.authorizationStatus
     }
-    
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        switch manager.authorizationStatus {
+
+    /// 権限が未決定ならダイアログを出す。拒否なら何もしない（設定へ誘導はView側で行う）。
+    func requestWhenInUseAuthorization() {
+        refreshStatus()
+
+        guard locationServicesEnabled else {
+            lastErrorMessage = "端末の「位置情報サービス」がOFFです。設定でONにしてください。"
+            return
+        }
+
+        if authorizationStatus == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+        }
+    }
+
+    /// 許可があるときだけ更新開始
+    func startUpdatingLocationIfPossible() {
+        refreshStatus()
+
+        guard locationServicesEnabled else { return }
+
+        switch authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
             manager.startUpdatingLocation()
-        case .denied, .restricted:
-            manager.stopUpdatingLocation()
         case .notDetermined:
+            // まず権限要求
+            manager.requestWhenInUseAuthorization()
+        case .denied, .restricted:
+            // 設定での許可が必要
             break
         @unknown default:
             break
         }
     }
 
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let latest = locations.last else { return }
-        DispatchQueue.main.async {
-            self.location = latest
+    func stopUpdatingLocation() {
+        manager.stopUpdatingLocation()
+    }
+
+    // iOS 14+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        authorizationStatus = manager.authorizationStatus
+
+        // 許可された瞬間に更新開始
+        if authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways {
+            manager.startUpdatingLocation()
         }
     }
 
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let latest = locations.last else { return }
+        location = latest
+        lastErrorMessage = nil
+    }
+
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Location error:", error.localizedDescription)
+        lastErrorMessage = error.localizedDescription
     }
 }
+
