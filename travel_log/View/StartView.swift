@@ -61,7 +61,6 @@ struct StartView: View {
                    }
                }
                
-               
                if isRunning {
                    HStack(spacing: 20) {
                        CustomButton3(title: "終了") {
@@ -120,7 +119,10 @@ struct StartView: View {
                            Spacer()
                            CustomButton2(title:"書き残す", action:{print("hello")}, imagename:"text.bubble")
                            Spacer()
-                           CustomButton2(title:"情報", action:{print("hello")}, imagename:"info.circle")
+                           CustomButton2(title:"情報", action:{ NavigationLink("NavigationLink"){
+                               InformationView()
+                               }
+                           }, imagename:"info.circle")
                            Spacer()
                        }
                        
@@ -134,6 +136,9 @@ struct StartView: View {
            .background(Color.customBackgroundColor)
            .ignoresSafeArea()
                 }
+               
+               
+               
 }
 
     
