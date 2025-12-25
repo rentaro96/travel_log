@@ -8,7 +8,8 @@
 import SwiftUI
 
 struct FriendAddView: View {
-    @StateObject private var authStore = AuthStore()
+    //@StateObject private var authStore = AuthStore()
+    @EnvironmentObject var authStore: AuthStore
     @StateObject private var friendVM = FriendViewModel()
     @StateObject private var requestsVM = FriendRequestsViewModel()
 
@@ -17,6 +18,7 @@ struct FriendAddView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 16) {
+                Spacer(minLength: 25)
 
                 // 自分のID表示
                 VStack(spacing: 6) {
@@ -29,10 +31,11 @@ struct FriendAddView: View {
                             .font(.title2)
                             .fontWeight(.bold)
                             .tracking(2)
+                        
 
                         Button {
                             UIPasteboard.general.string = authStore.friendCode
-                            friendVM.message = "コピーした"
+                            friendVM.message = "コピーしました"
                         } label: {
                             Image(systemName: "doc.on.doc")
                         }
@@ -70,6 +73,11 @@ struct FriendAddView: View {
                 }
 
                 if !friendVM.message.isEmpty {
+                    Text("送信できませんでした")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                else{
                     Text(friendVM.message)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -80,7 +88,7 @@ struct FriendAddView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("受信した申請")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
 
                     if requestsVM.received.isEmpty {
@@ -118,12 +126,17 @@ struct FriendAddView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Spacer(minLength: 40)
             }
             .padding()
             .navigationTitle("フレンド追加")
             .task {
-                await authStore.signInIfNeeded()
+                guard !authStore.uid.isEmpty else { return }
                 requestsVM.startListening(myUid: authStore.uid)
+            }
+            .onDisappear {
+                requestsVM.stopListening()
+            }
             }
             .onDisappear {
                 requestsVM.stopListening()
@@ -131,8 +144,11 @@ struct FriendAddView: View {
             .toolbar(.hidden, for: .navigationBar)
                     .ignoresSafeArea()
         }
+        
+        
     }
-}
+    
+
 
 #Preview {
     FriendAddView()

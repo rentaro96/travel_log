@@ -19,8 +19,10 @@ final class AuthStore: ObservableObject {
     private let db = Firestore.firestore()
 
     func signInIfNeeded() async {
+        print("✅ signInIfNeeded called")
         status = "ログイン確認中…"
 
+        // ✅ 既にログインしてるなら、その uid を使う（再ログインしない）
         if let current = Auth.auth().currentUser {
             uid = current.uid
             await createUserIfNeeded()
@@ -28,6 +30,7 @@ final class AuthStore: ObservableObject {
             return
         }
 
+        // ✅ いない時だけ匿名ログイン
         status = "匿名ログイン中…"
         do {
             let result = try await Auth.auth().signInAnonymously()
@@ -36,34 +39,48 @@ final class AuthStore: ObservableObject {
             status = "匿名ログイン成功"
         } catch {
             status = "ログイン失敗: \(error.localizedDescription)"
-            print("匿名ログイン失敗:", error)
+            print("❌ 匿名ログイン失敗:", error)
         }
     }
 
+    // 機能は同じ（users/{uid} があれば friendCode 取得、なければ作成）
     private func createUserIfNeeded() async {
         guard !uid.isEmpty else { return }
 
         let ref = db.collection("users").document(uid)
-        let snapshot = try? await ref.getDocument()
 
-        if snapshot?.exists == true {
-            friendCode = snapshot?.data()?["friendCode"] as? String ?? ""
-            return
+        do {
+            let snapshot = try await ref.getDocument()
+
+            // ✅ 既に users/{uid} がある → friendCode を読む（固定）
+            if snapshot.exists,
+               let code = snapshot.data()?["friendCode"] as? String,
+               !code.isEmpty {
+                friendCode = code
+                return
+            }
+
+            // ✅ 無ければ生成して保存（1回だけ）
+            let code = generateFriendCode(length: 6)
+            friendCode = code
+
+            let data: [String: Any] = [
+                "friendCode": code,
+                "createdAt": FieldValue.serverTimestamp()
+            ]
+
+            try await ref.setData(data, merge: true) // merge true の方が安全
+            print("✅ users/\(uid) を作成しました friendCode=\(code)")
+
+        } catch {
+            // ✅ ここが見えるようになるのが重要（ルール弾き/設定ミスが分かる）
+            status = "Firestore失敗: \(error.localizedDescription)"
+            print("❌ Firestore create/read 失敗:", error)
         }
-
-        let code = generateFriendCode()
-        friendCode = code
-
-        let data: [String: Any] = [
-            "friendCode": code,
-            "createdAt": FieldValue.serverTimestamp()
-        ]
-        try? await ref.setData(data)
     }
 
     private func generateFriendCode(length: Int = 6) -> String {
-        let chars = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+        let chars = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") // 0/O,1/I除外
         return String((0..<length).compactMap { _ in chars.randomElement() })
     }
 }
-

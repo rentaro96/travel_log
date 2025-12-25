@@ -8,7 +8,7 @@
 import SwiftUI
 import MapKit
 import CoreLocation
-import Combine
+internal import Combine
 import CoreMotion
 
 struct InformationView: View {

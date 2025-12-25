@@ -8,20 +8,28 @@
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject var authStore: AuthStore
+    @State private var selectedTab = 1
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             StartView()
                 .tabItem {
                     Label("", systemImage: "airplane")
                 }
+                .tag(0)
             HomeView()
                 .tabItem {
                     Label("", systemImage: "house.fill")
                 }
+                .tag(1)
             HistoryView()
                 .tabItem {
                     Label("", systemImage: "clock.fill")
                 }
+                .tag(2)
+        }
+        .task {
+            await authStore.signInIfNeeded()
         }
     }
 }
