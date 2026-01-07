@@ -281,7 +281,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "travel-log-Info.plist";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "このアプリは位置情報を利用します。";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "このアプリはバックグラウンドでも位置情報を使用します。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "このアプリで位置情報を取得してよいですか？";
 				INFOPLIST_KEY_NSMotionUsageDescription = "このアプリは歩数を計測します";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -318,7 +318,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "travel-log-Info.plist";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "このアプリは位置情報を利用します。";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "このアプリはバックグラウンドでも位置情報を使用します。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "このアプリで位置情報を取得してよいですか？";
 				INFOPLIST_KEY_NSMotionUsageDescription = "このアプリは歩数を計測します";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
