@@ -20,21 +20,22 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
 @main
 struct YourApp: App {
-  // register app delegate for Firebase setup
-  @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    // register app delegate for Firebase setup
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var authStore = AuthStore()
     
-
-
-
-  var body: some Scene {
-    WindowGroup {
-        ContentView()
-                        .environmentObject(authStore)
-                        .task {
-                            await authStore.signInIfNeeded()
-                        }
-      
+    @StateObject private var tripStore = TripStore()
+    
+    
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .environmentObject(tripStore)
+                .environmentObject(authStore)
+                .task {
+                    await authStore.signInIfNeeded()
+                }
+            
+        }
     }
-  }
 }

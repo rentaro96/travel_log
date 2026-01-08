@@ -13,26 +13,26 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             StartView()
-                .tabItem {
-                    Label("", systemImage: "airplane")
-                }
+                .tabItem { Label("", systemImage: "airplane") }
                 .tag(0)
+            
             HomeView()
-                .tabItem {
-                    Label("", systemImage: "house.fill")
-                }
+                .tabItem { Label("", systemImage: "house.fill") }
                 .tag(1)
-            HistoryView()
-                .tabItem {
-                    Label("", systemImage: "clock.fill")
-                }
-                .tag(2)
+            
+            NavigationStack {
+                HistoryView()
+            }
+            .tabItem { Label("", systemImage: "clock.fill") }
+            .tag(2)
         }
+        
         .task {
             await authStore.signInIfNeeded()
         }
     }
 }
+
 
 #Preview {
     ContentView()

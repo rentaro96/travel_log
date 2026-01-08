@@ -10,36 +10,71 @@ import MapKit
 import CoreLocation
 internal import Combine
 import CoreMotion
+import PhotosUI
 
 struct StartView: View {
     @StateObject var locationManager = LocationManager()
     @State private var pedometer: CMPedometer? = CMPedometer()
-
+    
+    @EnvironmentObject var tripStore: TripStore
+    @State private var tripStartedAt: Date? = nil
+    
     @State private var isRunning = false
     @State private var isPaused  = false
     @State private var showActionButtons = false
-
+    
     // Map camera
     @State private var position: MapCameraPosition = .automatic
     @State private var hasCenteredOnce = false
     @State private var isFollowingUser = true
-
+    
     // Sheets
     @State private var showInfoSheet = false
-
+    
+    // 写真用
+    @State private var showPhotoDialog = false
+    @State private var showCamera = false
+    @State private var showPhotoPicker = false
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
+    
+    // メモ用
+    @State private var showMemoSheet = false
+    
+    @State private var selectedNote: TravelNote? = nil
+    @State private var showNoteSheet = false
+    
     var body: some View {
         VStack(spacing: 12) {
-
+            
             // ====== Map + Overlay ======
             ZStack {
                 // ✅ Map（中には地図に描くものだけ）
                 Map(position: $position, interactionModes: .all) {
                     UserAnnotation()
-
+                    
                     if locationManager.route.count >= 2 {
                         MapPolyline(coordinates: locationManager.route)
                             .stroke(.blue, lineWidth: 8)
                     }
+                    ForEach(locationManager.notes) { note in
+                            Annotation(
+                                note.type == .photo ? "Photo" : "Memo",
+                                coordinate: CLLocationCoordinate2D(latitude: note.latitude, longitude: note.longitude)
+                            ) {
+                                Button {
+                                    selectedNote = note
+                                    showNoteSheet = true
+                                } label: {
+                                    Image(systemName: note.type == .photo ? "camera.fill" : "text.bubble.fill")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(.white)
+                                        .padding(10)
+                                        .background(note.type == .photo ? Color.blue : Color.orange)
+                                        .clipShape(Circle())
+                                        .shadow(radius: 3)
+                                }
+                            }
+                        }
                 }
                 .mapControls {
                     MapCompass()
@@ -50,18 +85,18 @@ struct StartView: View {
                     // MapUserLocationButton()
                 }
                 .ignoresSafeArea()
-
+                
                 // ✅ ユーザーが地図を触ったら追従OFF（記録中だけ）
                 .onMapCameraChange { _ in
                     if locationManager.isRecording {
                         isFollowingUser = false
                     }
                 }
-
+                
                 // ✅ 位置更新：初回センタリング + 記録中&追従ONで追いかける
                 .onChange(of: locationManager.location) { loc in
                     guard let loc else { return }
-
+                    
                     if !hasCenteredOnce {
                         hasCenteredOnce = true
                         position = .region(MKCoordinateRegion(
@@ -71,7 +106,7 @@ struct StartView: View {
                         ))
                         return
                     }
-
+                    
                     if locationManager.isRecording && isFollowingUser {
                         position = .region(MKCoordinateRegion(
                             center: loc.coordinate,
@@ -84,7 +119,7 @@ struct StartView: View {
                     locationManager.requestAlwaysAuthorizationIfNeeded()
                     locationManager.startUpdatingLocationIfPossible()
                 }
-
+                
                 // ✅ 現在地に戻るボタン（Mapの上に重ねる）
                 VStack {
                     Spacer()
@@ -113,32 +148,50 @@ struct StartView: View {
                     }
                 }
             }
-
+            
             // ====== 操作ボタン群 ======
             if isRunning {
                 HStack(spacing: 20) {
-
+                    
                     CustomButton3(title: "終了") {
                         pedometer?.stopUpdates()
-
+                        
                         let recordedRoute = locationManager.stopRecording()
                         print("recorded points:", recordedRoute.count)
+                        let route = locationManager.stopRecording()
+                        let notes = locationManager.notes
 
+                        let started = tripStartedAt ?? Date()
+                        let ended = Date()
+
+                        let title = started.formatted(date: .abbreviated, time: .shortened)
+                        
+                       
+
+                        let trip = Trip(title: title, startedAt: started, endedAt: ended, route: route, notes: notes)
+                        
+                        
+                        tripStore.addTrip(trip)
+
+
+                        tripStartedAt = nil
+                        locationManager.notes.removeAll()
+                        
                         isRunning = false
                         isPaused = false
                         showActionButtons = false
                     }
-
+                    
                     if isPaused {
                         CustomButton3(title: "再開") {
                             guard CMPedometer.isStepCountingAvailable() else { return }
-
+                            
                             pedometer?.startUpdates(from: Date()) { data, error in
                                 if let steps = data?.numberOfSteps {
                                     print("steps:", steps)
                                 }
                             }
-
+                            
                             locationManager.resumeRecording()
                             isFollowingUser = true  // ついでに追従も復帰（好み）
                             isPaused = false
@@ -151,38 +204,41 @@ struct StartView: View {
                         }
                     }
                 }
-
+                
             } else {
                 CustomButton(title: "旅を始める！") {
                     guard CMPedometer.isStepCountingAvailable() else { return }
-
+                    
                     pedometer?.startUpdates(from: Date()) { data, error in
                         if let steps = data?.numberOfSteps {
                             print("steps:", steps)
                         }
                     }
-
+                    tripStartedAt = Date()
                     locationManager.startRecording(reset: true)
-
+                    locationManager.notes.removeAll()
+                    
+                    locationManager.startRecording(reset: true)
+                    
                     // ✅ 記録開始したら追従ONに戻す（旅中は迷子になりにくい）
                     isFollowingUser = true
-
+                    
                     isRunning = true
                     isPaused = false
                     showActionButtons = true
                 }
             }
-
+            
             // ====== 追加アクション ======
             if showActionButtons {
                 HStack {
                     Spacer()
                     CustomButton2(title: "写真を残す",
-                                  action: { print("camera tapped") },
+                                  action: { showPhotoDialog = true },
                                   imagename: "camera.fill")
                     Spacer()
                     CustomButton2(title: "書き残す",
-                                  action: { print("memo tapped") },
+                                  action: { showMemoSheet = true },
                                   imagename: "text.bubble")
                     Spacer()
                     CustomButton2(title: "情報",
@@ -197,6 +253,58 @@ struct StartView: View {
         .ignoresSafeArea()
         .sheet(isPresented: $showInfoSheet) {
             InformationView()
+        }
+        .sheet(isPresented: $showNoteSheet) {
+            if let note = selectedNote {
+                NoteDetailSheet(note: note)
+            }
+        }
+        .confirmationDialog("写真を追加", isPresented: $showPhotoDialog) {
+            Button("写真を撮る") {
+                showCamera = true
+            }
+            Button("フォルダから選択") {
+                showPhotoPicker = true
+            }
+            Button("キャンセル", role: .cancel) {}
+        }
+        .sheet(isPresented: $showCamera) {
+            CameraView { image in
+                if let data = image.jpegData(compressionQuality: 0.8) {
+                    addPhotoNote(imageData: data)
+                }
+            }
+        }
+        .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem)
+        .onChange(of: selectedPhotoItem) { item in
+            guard let item else { return }
+
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    addPhotoNote(imageData: data)
+                }
+                selectedPhotoItem = nil
+            }
+        }
+        .sheet(isPresented: $showMemoSheet) {
+            MemoInputView { text in
+                locationManager.saveMemo(text)            // ✅ インスタンス呼び出し
+            }
+        }
+    }
+    private func addPhotoNote(imageData: Data) {
+        guard let loc = locationManager.location else { return }
+        do {
+            let filename = try tripStore.savePhotoJPEG(imageData)
+            locationManager.notes.append(
+                TravelNote(type: .photo,
+                           latitude: loc.coordinate.latitude,
+                           longitude: loc.coordinate.longitude,
+                           date: Date(),
+                           photoFilename: filename)
+            )
+        } catch {
+            print("savePhotoJPEG error:", error)
         }
     }
 }

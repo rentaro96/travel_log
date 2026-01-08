@@ -8,28 +8,45 @@
 import SwiftUI
 
 struct HistoryView: View {
+    @State private var navigateToHistoryMap = false
+
     var body: some View {
-        ZStack {
-            VStack(spacing:20) {
-                Color.clear
-                Image("tabirogu2")
-                    .resizable()
-                    .frame(width:390, height:200)
-                Button(action: { let generator = UIImpactFeedbackGenerator(style: .light)
-                    generator.impactOccurred()
- }) {
-                    Image("tabirogu3")
+        NavigationStack {
+            ZStack {
+                VStack(spacing: 20) {
+                    Color.clear
+                    Image("tabirogu2")
                         .resizable()
-                    .frame(width:350, height:180)}
-                
+                        .frame(width: 390, height: 200)
                     
-                    Button(action: { let generator = UIImpactFeedbackGenerator(style: .light)
+                    // NavigationLink is activated by state variable.
+                    NavigationLink(
+                        destination: HistoryMapView(),
+                        isActive: $navigateToHistoryMap
+                    ) {
+                        EmptyView()
+                    }
+                    .hidden()
+                    
+                    Button(action: {
+                        let generator = UIImpactFeedbackGenerator(style: .light)
                         generator.impactOccurred()
- }) {
+                        navigateToHistoryMap = true
+                    }) {
+                        Image("tabirogu3")
+                            .resizable()
+                            .frame(width: 350, height: 180)
+                    }
+                    
+                    Button(action: {
+                        let generator = UIImpactFeedbackGenerator(style: .light)
+                        generator.impactOccurred()
+                    }) {
                         Image("tabirogu4")
                             .resizable()
-                            .frame(width:350, height:180)
+                            .frame(width: 350, height: 180)
                     }
+                    
                     Spacer(minLength: 120)
                 }
                 .background(Color.customBackgroundColor)
@@ -37,7 +54,7 @@ struct HistoryView: View {
             }
         }
     }
-
+}
 
 #Preview {
     HistoryView()
