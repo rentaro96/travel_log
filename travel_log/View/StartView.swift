@@ -282,10 +282,24 @@ struct StartView: View {
     /// Extracted annotation views for notes to reduce Map complexity
     @ViewBuilder
     private var notesAnnotations: some View {
+        // ✅ 写真/メモのピン（Mapの中に直書き！）
         ForEach(locationManager.notes) { note in
-            NoteAnnotationView(note: note) {
-                selectedNote = note
-                showNoteSheet = true
+            Annotation(
+                note.type == .photo ? "Photo" : "Memo",
+                coordinate: note.coordinate
+            ) {
+                Button {
+                    selectedNote = note
+                    showNoteSheet = true
+                } label: {
+                    Image(systemName: note.type == .photo ? "camera.fill" : "text.bubble.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(10)
+                        .background(note.type == .photo ? Color.blue : Color.orange)
+                        .clipShape(Circle())
+                        .shadow(radius: 3)
+                }
             }
         }
     }
@@ -321,9 +335,7 @@ struct StartView: View {
 }
 
 /// Extracted annotation button view for a single note
-private struct NoteAnnotationView: View {
-    let note: TravelNote
-    let onTap: () -> Void
+
 
     var body: some View {
         Annotation(
@@ -341,7 +353,7 @@ private struct NoteAnnotationView: View {
             }
         }
     }
-}
+
 
 struct StartView_Previews: PreviewProvider {
     static var previews: some View {
