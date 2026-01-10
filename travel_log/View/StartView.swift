@@ -15,50 +15,70 @@ import PhotosUI
 struct StartView: View {
     @StateObject var locationManager = LocationManager()
     @State private var pedometer: CMPedometer? = CMPedometer()
-    
+
     @EnvironmentObject var tripStore: TripStore
     @State private var tripStartedAt: Date? = nil
-    
+
     @State private var isRunning = false
     @State private var isPaused  = false
     @State private var showActionButtons = false
-    
+
     // Map camera
     @State private var position: MapCameraPosition = .automatic
     @State private var hasCenteredOnce = false
     @State private var isFollowingUser = true
-    
+
     // Sheets
     @State private var showInfoSheet = false
-    
+    @State private var showNoteSheet = false
+
     // 写真用
     @State private var showPhotoDialog = false
     @State private var showCamera = false
     @State private var showPhotoPicker = false
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
-    
+
     // メモ用
     @State private var showMemoSheet = false
-    
+
     @State private var selectedNote: TravelNote? = nil
-    @State private var showNoteSheet = false
-    
+
     @State private var steps: Int = 0
-    @State private var pedometerDistance: Double = 0 // pedometerの距離（取れたら）
-    
+    @State private var pedometerDistance: Double = 0 // CMPedometer側の距離(取れたら)
+
     var body: some View {
         VStack(spacing: 12) {
-            
+
             // ====== Map + Overlay ======
             ZStack {
                 Map(position: $position, interactionModes: .all) {
                     UserAnnotation()
-                    
+
                     if locationManager.route.count >= 2 {
                         MapPolyline(coordinates: locationManager.route)
                             .stroke(.blue, lineWidth: 8)
                     }
-                    notesAnnotations
+
+                    // ピン（写真/メモ）
+                    ForEach(locationManager.notes) { note in
+                        Annotation(
+                            note.type == .photo ? "Photo" : "Memo",
+                            coordinate: note.coordinate
+                        ) {
+                            Button {
+                                selectedNote = note
+                                showNoteSheet = true
+                            } label: {
+                                Image(systemName: note.type == .photo ? "camera.fill" : "text.bubble.fill")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(10)
+                                    .background(note.type == .photo ? Color.blue : Color.orange)
+                                    .clipShape(Circle())
+                                    .shadow(radius: 3)
+                            }
+                        }
+                    }
                 }
                 .mapControls {
                     MapCompass()
@@ -72,7 +92,7 @@ struct StartView: View {
                 }
                 .onChange(of: locationManager.location) { loc in
                     guard let loc else { return }
-                    
+
                     if !hasCenteredOnce {
                         hasCenteredOnce = true
                         position = .region(MKCoordinateRegion(
@@ -82,7 +102,7 @@ struct StartView: View {
                         ))
                         return
                     }
-                    
+
                     if locationManager.isRecording && isFollowingUser {
                         position = .region(MKCoordinateRegion(
                             center: loc.coordinate,
@@ -95,8 +115,8 @@ struct StartView: View {
                     locationManager.requestAlwaysAuthorizationIfNeeded()
                     locationManager.startUpdatingLocationIfPossible()
                 }
-                
-                // 現在地に戻るボタン
+
+                // 現在地に戻るボタン（自作）
                 VStack {
                     Spacer()
                     HStack {
@@ -124,46 +144,55 @@ struct StartView: View {
                     }
                 }
             }
-            
+
             // ====== 操作ボタン群 ======
             if isRunning {
                 HStack(spacing: 20) {
-                    
+
                     CustomButton3(title: "終了") {
                         pedometer?.stopUpdates()
-                        
-                        let recordedRoute = locationManager.stopRecording()
-                        print("recorded points:", recordedRoute.count)
+
+                        // ✅ stopRecording は1回だけ
                         let route = locationManager.stopRecording()
                         let notes = locationManager.notes
 
                         let started = tripStartedAt ?? Date()
                         let ended = Date()
-
                         let title = started.formatted(date: .abbreviated, time: .shortened)
-                       
 
-                        let trip = Trip(title: title, startedAt: started, endedAt: ended, route: route, notes: notes)
-                        
+                        let trip = Trip(
+                            title: title,
+                            startedAt: started,
+                            endedAt: ended,
+                            route: route,
+                            notes: notes
+                        )
                         tripStore.addTrip(trip)
+
+                        // 後始末
                         tripStartedAt = nil
                         locationManager.notes.removeAll()
-                        
+
                         isRunning = false
                         isPaused = false
                         showActionButtons = false
                     }
-                    
+
                     if isPaused {
                         CustomButton3(title: "再開") {
                             guard CMPedometer.isStepCountingAvailable() else { return }
-                            
+
+                            // pedometer 再開（steps更新も再開）
                             pedometer?.startUpdates(from: Date()) { data, error in
-                                if let steps = data?.numberOfSteps {
-                                    print("steps:", steps)
+                                guard error == nil, let data else { return }
+                                DispatchQueue.main.async {
+                                    steps = data.numberOfSteps.intValue
+                                    if let d = data.distance?.doubleValue {
+                                        pedometerDistance = d
+                                    }
                                 }
                             }
-                            
+
                             locationManager.resumeRecording()
                             isFollowingUser = true
                             isPaused = false
@@ -176,13 +205,14 @@ struct StartView: View {
                         }
                     }
                 }
-                
+
             } else {
                 CustomButton(title: "旅を始める！") {
                     guard CMPedometer.isStepCountingAvailable() else { return }
-                    
+
                     steps = 0
                     pedometerDistance = 0
+
                     pedometer?.startUpdates(from: Date()) { data, error in
                         guard error == nil, let data else { return }
                         DispatchQueue.main.async {
@@ -192,21 +222,19 @@ struct StartView: View {
                             }
                         }
                     }
-                    
+
                     tripStartedAt = Date()
-                    locationManager.startRecording(reset: true)
+
                     locationManager.notes.removeAll()
-                    
                     locationManager.startRecording(reset: true)
-                    
+
                     isFollowingUser = true
-                    
                     isRunning = true
                     isPaused = false
                     showActionButtons = true
                 }
             }
-            
+
             // ====== 追加アクション ======
             if showActionButtons {
                 HStack {
@@ -219,11 +247,9 @@ struct StartView: View {
                                   action: { showMemoSheet = true },
                                   imagename: "text.bubble")
                     Spacer()
-                    CustomButton2(
-                        title: "情報",
-                        action: { showInfoSheet = true },
-                        imagename: "info.circle"
-                    )
+                    CustomButton2(title: "情報",
+                                  action: { showInfoSheet = true },
+                                  imagename: "info.circle")
                     Spacer()
                 }
             }
@@ -231,23 +257,15 @@ struct StartView: View {
         .padding(.bottom, 100)
         .background(Color.customBackgroundColor)
         .ignoresSafeArea()
-        .sheet(isPresented: $showInfoSheet) {
-            InformationView()
-        }
-        .sheet(isPresented: $showNoteSheet) {
-            if let note = selectedNote {
-                NoteDetailSheet(note: note)
-            }
-        }
+
+        // ✅ ここから「下にまとめて」sheet類を付ける（重複させない）
+
         .confirmationDialog("写真を追加", isPresented: $showPhotoDialog) {
-            Button("写真を撮る") {
-                showCamera = true
-            }
-            Button("フォルダから選択") {
-                showPhotoPicker = true
-            }
+            Button("写真を撮る") { showCamera = true }
+            Button("フォルダから選択") { showPhotoPicker = true }
             Button("キャンセル", role: .cancel) {}
         }
+
         .sheet(isPresented: $showCamera) {
             CameraView { image in
                 if let data = image.jpegData(compressionQuality: 0.8) {
@@ -255,16 +273,11 @@ struct StartView: View {
                 }
             }
         }
-        .sheet(isPresented: $showInfoSheet) {
-            InformationView(
-                steps: steps,
-                distanceMeters: routeDistanceMeters()
-            )
-        }
+
         .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem)
+
         .onChange(of: selectedPhotoItem) { item in
             guard let item else { return }
-
             Task {
                 if let data = try? await item.loadTransferable(type: Data.self) {
                     addPhotoNote(imageData: data)
@@ -272,38 +285,29 @@ struct StartView: View {
                 selectedPhotoItem = nil
             }
         }
+
         .sheet(isPresented: $showMemoSheet) {
             MemoInputView { text in
                 locationManager.saveMemo(text)
             }
         }
-    }
-    
-    /// Extracted annotation views for notes to reduce Map complexity
-    @ViewBuilder
-    private var notesAnnotations: some View {
-        // ✅ 写真/メモのピン（Mapの中に直書き！）
-        ForEach(locationManager.notes) { note in
-            Annotation(
-                note.type == .photo ? "Photo" : "Memo",
-                coordinate: note.coordinate
-            ) {
-                Button {
-                    selectedNote = note
-                    showNoteSheet = true
-                } label: {
-                    Image(systemName: note.type == .photo ? "camera.fill" : "text.bubble.fill")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(10)
-                        .background(note.type == .photo ? Color.blue : Color.orange)
-                        .clipShape(Circle())
-                        .shadow(radius: 3)
-                }
+
+        .sheet(isPresented: $showInfoSheet) {
+            // ✅ InformationView 側に steps / distanceMeters を受け取る init を用意してね
+            InformationView(
+                steps: steps,
+                distanceMeters: routeDistanceMeters()
+            )
+        }
+
+        .sheet(isPresented: $showNoteSheet) {
+            if let note = selectedNote {
+                NoteDetailSheet(note: note)
+                    .environmentObject(tripStore)
             }
         }
     }
-    
+
     private func routeDistanceMeters() -> Double {
         let coords = locationManager.route
         guard coords.count >= 2 else { return 0 }
@@ -322,11 +326,13 @@ struct StartView: View {
         do {
             let filename = try tripStore.savePhotoJPEG(imageData)
             locationManager.notes.append(
-                TravelNote(type: .photo,
-                           latitude: loc.coordinate.latitude,
-                           longitude: loc.coordinate.longitude,
-                           date: Date(),
-                           photoFilename: filename)
+                TravelNote(
+                    type: .photo,
+                    latitude: loc.coordinate.latitude,
+                    longitude: loc.coordinate.longitude,
+                    date: Date(),
+                    photoFilename: filename
+                )
             )
         } catch {
             print("savePhotoJPEG error:", error)
@@ -334,29 +340,10 @@ struct StartView: View {
     }
 }
 
-/// Extracted annotation button view for a single note
-
-
-    var body: some View {
-        Annotation(
-            note.type == .photo ? "Photo" : "Memo",
-            coordinate: note.coordinate
-        ) {
-            Button(action: onTap) {
-                Image(systemName: note.type == .photo ? "camera.fill" : "text.bubble.fill")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(10)
-                    .background(note.type == .photo ? Color.blue : Color.orange)
-                    .clipShape(Circle())
-                    .shadow(radius: 3)
-            }
-        }
-    }
-
-
 struct StartView_Previews: PreviewProvider {
     static var previews: some View {
         StartView()
+        // Previewで落ちるなら↓を付ける（TripStoreが必要）
+        // .environmentObject(TripStore())
     }
 }
