@@ -6,23 +6,34 @@
 //
 
 import SwiftUI
-import MapKit
-import CoreLocation
-internal import Combine
-import CoreMotion
 
 struct InformationView: View {
-    @Environment(\.dismiss) var dismiss
+    let steps: Int
+    let distanceMeters: Double
+
     var body: some View {
-        ZStack {
-            Color.yellow.edgesIgnoringSafeArea(.all)
-            Button("閉じる") {
-                dismiss()
+        VStack(spacing: 16) {
+
+            HStack {
+                Text("歩数")
+                Spacer()
+                Text("\(steps) 歩")
+                    .foregroundStyle(.secondary)
             }
+
+            HStack {
+                Text("距離")
+                Spacer()
+                Text(String(format: "%.2f km", distanceMeters / 1000))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
         }
+        .padding()
     }
 }
 
 #Preview {
-    InformationView()
+    InformationView(steps: 1234, distanceMeters: 1567) // ✅値を入れる
 }

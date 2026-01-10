@@ -13,19 +13,30 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
     // 記録状態とルート
     @Published private(set) var isRecording: Bool = false
     @Published private(set) var route: [CLLocationCoordinate2D] = []
+    
+    @Published private(set) var isAutoPaused: Bool = false
 
     // 旅中に追加する写真/メモ（Models.swift の TravelNote を使う）
     @Published var notes: [TravelNote] = []
 
     private let manager = CLLocationManager()
     private var lastRecordedLocation: CLLocation?
+    
+    private let stationarySeconds: TimeInterval = 90        // 例：1分
+    private let stationaryRadiusMeters: Double = 10         // 例：12m以内なら「同じ場所」
+
+    /// 「動き出した」とみなして再開する閾値
+    private let resumeDistanceMeters: Double = 11           // 例：18m以上離れたら再開（半径より少し大きめ）
+
+    /// 直近の位置履歴（時間窓で使う）
+    private var recentLocations: [CLLocation] = []
 
     override init() {
         super.init()
         manager.delegate = self
 
         manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.distanceFilter = 10 // 10m動いたら更新（必要なら調整）
+        manager.distanceFilter = 5 // 5m動いたら更新（必要なら調整）
 
         // バックグラウンド記録を本気でやるなら後でON（※注意あり）
         // manager.allowsBackgroundLocationUpdates = true
@@ -106,26 +117,36 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
     // MARK: - Recording
 
     func startRecording(reset: Bool = true) {
+        print("startRecording called")
         if reset {
             route.removeAll()
             lastRecordedLocation = nil
-            notes.removeAll()
+            notes.removeAll() // 必要なら
         }
+        recentLocations.removeAll()
+        isAutoPaused = false
+
         isRecording = true
         startUpdatingLocationIfPossible()
     }
 
     func pauseRecording() {
         isRecording = false
+        isAutoPaused = false
+        recentLocations.removeAll()
     }
 
     func resumeRecording() {
         isRecording = true
+        isAutoPaused = false
+        recentLocations.removeAll()
         startUpdatingLocationIfPossible()
     }
 
     func stopRecording() -> [CLLocationCoordinate2D] {
         isRecording = false
+        isAutoPaused = false
+        recentLocations.removeAll()
         stopUpdatingLocation()
         return route
     }
@@ -144,12 +165,55 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
         location = latest
         lastErrorMessage = nil
 
+        // 記録してない時はルート処理しない
         guard isRecording else { return }
 
-        // 追加フィルタ（distanceFilterの補強）
+        // ===== 外れ値フィルタ（前に話したやつ）=====
+        if latest.horizontalAccuracy < 0 || latest.horizontalAccuracy > 35 { return }
+
+        // ===== 自動停止/再開 判定用に「直近履歴」を更新 =====
+        recentLocations.append(latest)
+
+        // 古い履歴を捨てる（stationarySeconds より前は捨てる）
+        let cutoff = Date().addingTimeInterval(-stationarySeconds)
+        recentLocations.removeAll { $0.timestamp < cutoff }
+
+        // 履歴が少なすぎるなら判定しない（開始直後）
+        if recentLocations.count >= 3 {
+            // 直近窓の中で「中心っぽい点」を基準に半径を見る
+            // 一番シンプルに「最初の点」を基準にする（十分強い）
+            let base = recentLocations.first!
+
+            // base からの最大距離
+            let maxD = recentLocations.map { $0.distance(from: base) }.max() ?? 0
+
+            // ✅ 1分間ずっと半径12m以内なら「止まってる」→ 自動停止
+            let windowSpan = (recentLocations.last!.timestamp.timeIntervalSince(recentLocations.first!.timestamp))
+            let isStationaryWindow = windowSpan >= stationarySeconds && maxD <= stationaryRadiusMeters
+
+            if isStationaryWindow {
+                isAutoPaused = true
+            } else {
+                // ✅ 止まってた状態から、十分動いたら復帰
+                if isAutoPaused {
+                    let movedFromBase = latest.distance(from: base)
+                    if movedFromBase >= resumeDistanceMeters {
+                        isAutoPaused = false
+                        recentLocations.removeAll() // 再開時は窓をリセット（判定が早くなる）
+                        recentLocations.append(latest)
+                    }
+                }
+            }
+        }
+
+        // ===== 自動停止中なら「ルート追加しない」=====
+        if isAutoPaused { return }
+
+        // ===== ここから下は、ルート追加 =====
         if let last = lastRecordedLocation {
             let d = latest.distance(from: last)
-            if d < 5 { return }   // 5m未満は無視（好みで調整）
+            if d < 5 { return }       // 揺れ対策
+            if d > 80 { return }      // ワープ対策（必要なら）
         }
 
         route.append(latest.coordinate)
