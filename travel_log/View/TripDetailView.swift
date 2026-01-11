@@ -12,24 +12,24 @@ import CoreLocation
 struct TripDetailView: View {
     let trip: Trip
     @EnvironmentObject var tripStore: TripStore
-
+    
     // Map camera
     @State private var position: MapCameraPosition = .automatic
     @State private var hasCenteredOnce = false
-
+    
     // ✅ sheet(item:) 用（これだけ）
     @State private var selectedNote: TravelNote? = nil
-
+    
     var body: some View {
         VStack(spacing: 0) {
-
+            
             // ===== Map（ルート線＋ピン）=====
             Map(position: $position, interactionModes: .all) {
                 if trip.route.count >= 2 {
                     MapPolyline(coordinates: trip.route)
                         .stroke(.blue, lineWidth: 8)
                 }
-
+                
                 ForEach(trip.notes) { note in
                     Annotation(
                         note.type == .photo ? "Photo" : "Memo",
@@ -51,9 +51,9 @@ struct TripDetailView: View {
             }
             .frame(height: 320)
             .onAppear { centerMapIfNeeded() }
-
+            
             Divider()
-
+            
             // ===== 下：ノート一覧（サムネ付き）=====
             List {
                 Section {
@@ -69,8 +69,21 @@ struct TripDetailView: View {
                         Text("\(trip.notes.count)")
                             .foregroundStyle(.secondary)
                     }
+                    HStack {
+                        Text("歩数")
+                        Spacer()
+                        Text("\(trip.steps)")
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    HStack {
+                        Text("距離")
+                        Spacer()
+                        Text(String(format: "%.2f km", trip.distanceMeters / 1000))
+                            .foregroundStyle(.secondary)
+                    }
                 }
-
+                
                 Section("写真・メモ（時系列）") {
                     ForEach(trip.notes.sorted { $0.date < $1.date }) { note in
                         Button {
@@ -80,7 +93,7 @@ struct TripDetailView: View {
                                 if note.type == .photo,
                                    let fn = note.photoFilename,
                                    let img = tripStore.loadPhoto(filename: fn) {
-
+                                    
                                     Image(uiImage: img)
                                         .resizable()
                                         .scaledToFill()
@@ -93,12 +106,12 @@ struct TripDetailView: View {
                                         .background(.thinMaterial)
                                         .clipShape(RoundedRectangle(cornerRadius: 10))
                                 }
-
+                                
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(note.date.formatted(date: .abbreviated, time: .shortened))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
-
+                                    
                                     if note.type == .memo {
                                         Text(note.text ?? "")
                                             .foregroundStyle(.primary)
@@ -108,7 +121,7 @@ struct TripDetailView: View {
                                             .foregroundStyle(.primary)
                                     }
                                 }
-
+                                
                                 Spacer()
                             }
                         }
@@ -118,7 +131,7 @@ struct TripDetailView: View {
         }
         .navigationTitle(trip.title)
         .navigationBarTitleDisplayMode(.inline)
-
+        
         // ✅ ここが本命：nilじゃない時だけ開くので白くならない
         .sheet(item: $selectedNote) { note in
             NoteDetailSheet(note: note)

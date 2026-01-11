@@ -8,6 +8,8 @@
 import Foundation
 import CoreLocation
 
+// MARK: - Note
+
 enum TravelNoteType: String, Codable {
     case photo
     case memo
@@ -26,13 +28,15 @@ struct TravelNote: Identifiable, Codable, Equatable {
     // photo用（アプリ内Documentsに保存したファイル名）
     var photoFilename: String?
 
-    init(type: TravelNoteType,
-         latitude: Double,
-         longitude: Double,
-         date: Date,
-         text: String? = nil,
-         photoFilename: String? = nil,
-         id: UUID = UUID()) {
+    init(
+        type: TravelNoteType,
+        latitude: Double,
+        longitude: Double,
+        date: Date,
+        text: String? = nil,
+        photoFilename: String? = nil,
+        id: UUID = UUID()
+    ) {
         self.id = id
         self.type = type
         self.latitude = latitude
@@ -47,29 +51,41 @@ struct TravelNote: Identifiable, Codable, Equatable {
     }
 }
 
+// MARK: - Trip
+
 struct Trip: Identifiable, Codable {
     let id: UUID
     var title: String
     let startedAt: Date
     let endedAt: Date
 
-    // ルートは軽量に（Doubleの配列で保存）
-    let routeLatLons: [[Double]]   // [[lat, lon], ...]
+    // ルートは軽量保存（[[lat, lon], ...]）
+    let routeLatLons: [[Double]]
 
     let notes: [TravelNote]
 
-    init(title: String,
-         startedAt: Date,
-         endedAt: Date,
-         route: [CLLocationCoordinate2D],
-         notes: [TravelNote],
-         id: UUID = UUID()) {
+    // ✅ 旅全体の歩数と距離
+    let steps: Int
+    let distanceMeters: Double
+
+    init(
+        title: String,
+        startedAt: Date,
+        endedAt: Date,
+        route: [CLLocationCoordinate2D],
+        notes: [TravelNote],
+        steps: Int = 0,
+        distanceMeters: Double = 0,
+        id: UUID = UUID()
+    ) {
         self.id = id
         self.title = title
         self.startedAt = startedAt
         self.endedAt = endedAt
         self.routeLatLons = route.map { [$0.latitude, $0.longitude] }
         self.notes = notes
+        self.steps = steps
+        self.distanceMeters = distanceMeters
     }
 
     var route: [CLLocationCoordinate2D] {

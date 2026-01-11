@@ -159,13 +159,17 @@ struct StartView: View {
                         let started = tripStartedAt ?? Date()
                         let ended = Date()
                         let title = started.formatted(date: .abbreviated, time: .shortened)
+                        
+                        let distance = routeDistanceMeters()
 
                         let trip = Trip(
-                            title: title,
-                            startedAt: started,
-                            endedAt: ended,
-                            route: route,
-                            notes: notes
+                                title: title,
+                                startedAt: started,
+                                endedAt: ended,
+                                route: route,
+                                notes: notes,
+                                steps: steps,
+                                distanceMeters: distance
                         )
                         tripStore.addTrip(trip)
 
