@@ -33,8 +33,15 @@ struct HistoryMapView: View {
                 }
             }
             .onDelete { indexSet in
-                for i in indexSet {
-                    tripStore.deleteTrip(tripStore.trips[i])
+                Task {
+                    for i in indexSet {
+                        let trip = tripStore.trips[i]
+                        do {
+                            try await tripStore.deleteTrip(trip)
+                        } catch {
+                            print("deleteTrip error:", error)
+                        }
+                    }
                 }
             }
         }

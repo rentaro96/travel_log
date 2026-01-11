@@ -22,10 +22,11 @@ struct TravelNote: Identifiable, Codable, Equatable {
     let longitude: Double
     let date: Date
 
-    // memo用
-    var text: String?
+    // ✅ 追加したなら init でも必ず埋める
+    let steps: Int
+    let distanceMeters: Double
 
-    // photo用（アプリ内Documentsに保存したファイル名）
+    var text: String?
     var photoFilename: String?
 
     init(
@@ -33,6 +34,8 @@ struct TravelNote: Identifiable, Codable, Equatable {
         latitude: Double,
         longitude: Double,
         date: Date,
+        steps: Int = 0,
+        distanceMeters: Double = 0,
         text: String? = nil,
         photoFilename: String? = nil,
         id: UUID = UUID()
@@ -42,6 +45,8 @@ struct TravelNote: Identifiable, Codable, Equatable {
         self.latitude = latitude
         self.longitude = longitude
         self.date = date
+        self.steps = steps
+        self.distanceMeters = distanceMeters
         self.text = text
         self.photoFilename = photoFilename
     }
@@ -58,7 +63,6 @@ struct Trip: Identifiable, Codable {
     var title: String
     let startedAt: Date
     let endedAt: Date
-
     // ルートは軽量保存（[[lat, lon], ...]）
     let routeLatLons: [[Double]]
 

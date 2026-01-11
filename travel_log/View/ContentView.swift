@@ -10,6 +10,9 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var authStore: AuthStore
     @State private var selectedTab = 1
+    
+    let tripStore = TripStore()
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             StartView()
@@ -28,10 +31,16 @@ struct ContentView: View {
         }
         
         .task {
-            await authStore.signInIfNeeded()
+                    await authStore.signInIfNeeded()
+                    tripStore.setUID(authStore.uid.isEmpty ? nil : authStore.uid)
+                }
+                .onChange(of: authStore.uid) { newUID in
+                    tripStore.setUID(newUID.isEmpty ? nil : newUID)
+                }
+            }
         }
-    }
-}
+
+
 
 
 #Preview {

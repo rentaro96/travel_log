@@ -8,111 +8,119 @@
 import Foundation
 import UIKit
 internal import Combine
+import FirebaseFirestore
+import FirebaseStorage
 
 @MainActor
 final class TripStore: ObservableObject {
-    // Removed: var objectWillChange: ObservableObjectPublisher
 
-    // 🔴 これが無いと全部壊れる
     @Published private(set) var trips: [Trip] = []
 
-    private let tripsFilename = "trips.json"
-    private let photosFolder = "TripPhotos"
+    private let db = Firestore.firestore()
+    private let storage = Storage.storage()
 
-    // MARK: - Init
-    init() {
-        load()
+    private var listener: ListenerRegistration?
+    
+    
+   
+
+    // ✅ AuthStore の uid を使う（外から渡す）
+    private var uid: String?
+
+    deinit {
+        listener?.remove()
+    }
+    
+    
+    func setUID(_ uid: String?) {
+        self.uid = uid
+        // ここで listener 開始してるなら、uidセット後に startListening() とか呼ぶ
     }
 
-    // MARK: - Public API
+    // MARK: - Public
 
-    func addTrip(_ trip: Trip) {
-        trips.insert(trip, at: 0)
-        save()
+    /// ✅ ログイン後に必ず呼ぶ：Firestoreと接続開始
+    func bindUser(uid: String) {
+        self.uid = uid
+
+        // 既存listenerがあれば外す
+        listener?.remove()
+
+        // users/{uid}/trips を監視（リアルタイム）
+        listener = db.collection("users")
+            .document(uid)
+            .collection("trips")
+            .order(by: "startedAt", descending: true)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self else { return }
+                if let error {
+                    print("TripStore listen error:", error)
+                    return
+                }
+                guard let snapshot else { return }
+
+                self.trips = snapshot.documents.compactMap { doc in
+                    try? doc.data(as: Trip.self)
+                }
+            }
     }
 
-    func deleteTrip(_ trip: Trip) {
+    /// ✅ Firestoreへ追加（終了ボタンで呼ぶ）
+    func addTrip(_ trip: Trip) async throws {
+            guard let uid else {
+                throw NSError(domain: "TripStore", code: 0,
+                              userInfo: [NSLocalizedDescriptionKey: "uidが未設定"])
+            }
+
+            try db.collection("users")
+                .document(uid)
+                .collection("trips")
+                .document(trip.id.uuidString)
+                .setData(from: trip, merge: true)
+        }
+
+    /// ✅ Firestoreから削除（＋写真も消す）
+    func deleteTrip(_ trip: Trip) async throws {
+        guard let uid else { throw NSError(domain: "TripStore", code: 0, userInfo: [NSLocalizedDescriptionKey: "uidが未設定"]) }
+
+        // 先にStorageの写真削除（photoPathがある前提）
         for note in trip.notes {
-            if let filename = note.photoFilename {
-                try? deletePhoto(filename: filename)
+            if let path = note.photoFilename {
+                try? await deletePhoto(path: path)
             }
         }
-        trips.removeAll { $0.id == trip.id }
-        save()
+
+        try await db.collection("users")
+            .document(uid)
+            .collection("trips")
+            .document(trip.id.uuidString)
+            .delete()
     }
 
-    func savePhotoJPEG(_ data: Data) throws -> String {
-        let folderURL = try photosFolderURL()
-        let filename = UUID().uuidString + ".jpg"
-        let url = folderURL.appendingPathComponent(filename)
-        try data.write(to: url, options: .atomic)
-        return filename
+    // MARK: - Photos (Firebase Storage)
+
+    /// ✅ 写真アップロードして path を返す
+    func uploadPhotoJPEG(_ data: Data, tripId: UUID, noteId: UUID) async throws -> String {
+        guard let uid else { throw NSError(domain: "TripStore", code: 0, userInfo: [NSLocalizedDescriptionKey: "uidが未設定"]) }
+
+        let path = "users/\(uid)/photos/\(tripId.uuidString)/\(noteId.uuidString).jpg"
+        let ref = storage.reference(withPath: path)
+
+        let metadata = StorageMetadata()
+        metadata.contentType = "image/jpeg"
+
+        _ = try await ref.putDataAsync(data, metadata: metadata)
+        return path
     }
 
-    func loadPhoto(filename: String) -> UIImage? {
-        let url = try? photosFolderURL().appendingPathComponent(filename)
-        guard let path = url?.path else { return nil }
-        return UIImage(contentsOfFile: path)
+    func loadPhoto(path: String) async throws -> UIImage? {
+        let ref = storage.reference(withPath: path)
+        let data = try await ref.data(maxSize: 8 * 1024 * 1024) // 8MB1
+        return UIImage(data: data)
     }
 
-    // MARK: - Persistence
-
-    private func tripsFileURL() throws -> URL {
-        let docs = try FileManager.default.url(
-            for: .documentDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-        return docs.appendingPathComponent(tripsFilename)
-    }
-
-    private func photosFolderURL() throws -> URL {
-        let docs = try FileManager.default.url(
-            for: .documentDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-        let folder = docs.appendingPathComponent(photosFolder, isDirectory: true)
-        if !FileManager.default.fileExists(atPath: folder.path) {
-            try FileManager.default.createDirectory(
-                at: folder,
-                withIntermediateDirectories: true
-            )
-        }
-        return folder
-    }
-
-    private func deletePhoto(filename: String) throws {
-        let url = try photosFolderURL().appendingPathComponent(filename)
-        if FileManager.default.fileExists(atPath: url.path) {
-            try FileManager.default.removeItem(at: url)
-        }
-    }
-
-    private func save() {
-        do {
-            let url = try tripsFileURL()
-            let data = try JSONEncoder().encode(trips)
-            try data.write(to: url, options: .atomic)
-        } catch {
-            print("TripStore save error:", error)
-        }
-    }
-
-    private func load() {
-        do {
-            let url = try tripsFileURL()
-            guard FileManager.default.fileExists(atPath: url.path) else {
-                trips = []
-                return
-            }
-            let data = try Data(contentsOf: url)
-            trips = try JSONDecoder().decode([Trip].self, from: data)
-        } catch {
-            print("TripStore load error:", error)
-            trips = []
-        }
+    private func deletePhoto(path: String) async throws {
+        let ref = storage.reference(withPath: path)
+        try await ref.delete()
     }
 }

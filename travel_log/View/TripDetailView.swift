@@ -22,32 +22,10 @@ struct TripDetailView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            
             // ===== Map（ルート線＋ピン）=====
             Map(position: $position, interactionModes: .all) {
-                if trip.route.count >= 2 {
-                    MapPolyline(coordinates: trip.route)
-                        .stroke(.blue, lineWidth: 8)
-                }
-                
-                ForEach(trip.notes) { note in
-                    Annotation(
-                        note.type == .photo ? "Photo" : "Memo",
-                        coordinate: CLLocationCoordinate2D(latitude: note.latitude, longitude: note.longitude)
-                    ) {
-                        Button {
-                            selectedNote = note   // ✅ これだけ
-                        } label: {
-                            Image(systemName: note.type == .photo ? "camera.fill" : "text.bubble.fill")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(10)
-                                .background(note.type == .photo ? Color.blue : Color.orange)
-                                .clipShape(Circle())
-                                .shadow(radius: 3)
-                        }
-                    }
-                }
+                mapPolyline
+                mapAnnotations
             }
             .frame(height: 320)
             .onAppear { centerMapIfNeeded() }
@@ -85,47 +63,7 @@ struct TripDetailView: View {
                 }
                 
                 Section("写真・メモ（時系列）") {
-                    ForEach(trip.notes.sorted { $0.date < $1.date }) { note in
-                        Button {
-                            selectedNote = note   // ✅ これだけ
-                        } label: {
-                            HStack(spacing: 12) {
-                                if note.type == .photo,
-                                   let fn = note.photoFilename,
-                                   let img = tripStore.loadPhoto(filename: fn) {
-                                    
-                                    Image(uiImage: img)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 56, height: 56)
-                                        .clipped()
-                                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                                } else {
-                                    Image(systemName: note.type == .photo ? "camera.fill" : "text.bubble.fill")
-                                        .frame(width: 56, height: 56)
-                                        .background(.thinMaterial)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                                }
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(note.date.formatted(date: .abbreviated, time: .shortened))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    
-                                    if note.type == .memo {
-                                        Text(note.text ?? "")
-                                            .foregroundStyle(.primary)
-                                            .lineLimit(2)
-                                    } else {
-                                        Text("写真")
-                                            .foregroundStyle(.primary)
-                                    }
-                                }
-                                
-                                Spacer()
-                            }
-                        }
-                    }
+                    notesList
                 }
             }
         }
@@ -138,7 +76,83 @@ struct TripDetailView: View {
                 .environmentObject(tripStore)
         }
     }
+    
+    // MARK: - View Builders
+    
+    @MapContentBuilder
+    private var mapPolyline: some MapContent {
+        if trip.route.count >= 2 {
+            MapPolyline(coordinates: trip.route)
+                .stroke(.blue, lineWidth: 8)
+        }
+    }
 
+    // Mapの中で使う：ピン
+    @MapContentBuilder
+    private var mapAnnotations: some MapContent {
+        ForEach(trip.notes) { note in
+            Annotation(
+                note.type == .photo ? "Photo" : "Memo",
+                coordinate: note.coordinate
+            ) {
+                Button {
+                    selectedNote = note
+                } label: {
+                    Image(systemName: note.type == .photo ? "camera.fill" : "text.bubble.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(10)
+                        .background(note.type == .photo ? Color.blue : Color.orange)
+                        .clipShape(Circle())
+                        .shadow(radius: 3)
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var notesList: some View {
+        ForEach(trip.notes.sorted { $0.date < $1.date }) { note in
+            Button {
+                selectedNote = note
+            } label: {
+                HStack(spacing: 12) {
+                    if note.type == .photo,
+                       let fn = note.photoFilename {
+
+                        RemotePhotoThumbnail(path: fn)
+                            .frame(width: 56, height: 56)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                        else {
+                        Image(systemName: note.type == .photo ? "camera.fill" : "text.bubble.fill")
+                            .frame(width: 56, height: 56)
+                            .background(.thinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(note.date.formatted(date: .abbreviated, time: .shortened))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        if note.type == .memo {
+                            Text(note.text ?? "")
+                                .foregroundStyle(.primary)
+                                .lineLimit(2)
+                        } else {
+                            Text("写真")
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                    
+                    Spacer()
+                }
+            }
+        }
+    }
+    
     private func centerMapIfNeeded() {
         guard !hasCenteredOnce else { return }
         hasCenteredOnce = true
@@ -158,4 +172,3 @@ struct TripDetailView: View {
         }
     }
 }
-

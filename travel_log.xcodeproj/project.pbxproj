@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0509A2322F134CA5005A0D75 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 0509A2312F134CA5005A0D75 /* FirebaseStorage */; };
 		058780132EFC328600B435AD /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 058780122EFC328600B435AD /* FirebaseCore */; };
 		0587801B2EFC352700B435AD /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 0587801A2EFC352700B435AD /* FirebaseAuth */; };
 		0587801D2EFC354000B435AD /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 0587801C2EFC354000B435AD /* FirebaseFirestore */; };
@@ -30,6 +31,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				058780132EFC328600B435AD /* FirebaseCore in Frameworks */,
+				0509A2322F134CA5005A0D75 /* FirebaseStorage in Frameworks */,
 				0587801B2EFC352700B435AD /* FirebaseAuth in Frameworks */,
 				0587801D2EFC354000B435AD /* FirebaseFirestore in Frameworks */,
 			);
@@ -85,6 +87,7 @@
 				058780122EFC328600B435AD /* FirebaseCore */,
 				0587801A2EFC352700B435AD /* FirebaseAuth */,
 				0587801C2EFC354000B435AD /* FirebaseFirestore */,
+				0509A2312F134CA5005A0D75 /* FirebaseStorage */,
 			);
 			productName = travel_log;
 			productReference = 05C1B66C2E9215BB009B5783 /* travel_log.app */;
@@ -382,6 +385,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		0509A2312F134CA5005A0D75 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 058780102EFC321B00B435AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
 		058780122EFC328600B435AD /* FirebaseCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 058780102EFC321B00B435AD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
