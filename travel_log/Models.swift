@@ -99,3 +99,19 @@ struct Trip: Identifiable, Codable {
         }
     }
 }
+
+extension Trip: CustomStringConvertible {
+    var description: String {
+        """
+        Trip(
+          title: \(title),
+          startedAt: \(startedAt),
+          endedAt: \(endedAt),
+          steps: \(steps),
+          distanceMeters: \(distanceMeters),
+          routeCount: \(route.count),
+          notesCount: \(notes.count)
+        )
+        """
+    }
+}

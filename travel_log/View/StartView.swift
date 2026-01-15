@@ -126,6 +126,7 @@ struct StartView: View {
                             do {
                                 
                                 try await tripStore.addTrip(trip)
+                                print(trip)
                                 print("✅ Firestore保存OK")
                             } catch {
                                 print("❌ Firestore保存失敗:", error)
