@@ -20,9 +20,6 @@ final class TripStore: ObservableObject {
     private let storage = Storage.storage()
 
     private var listener: ListenerRegistration?
-    
-    
-   
 
     // ✅ AuthStore の uid を使う（外から渡す）
     private var uid: String?
@@ -30,8 +27,7 @@ final class TripStore: ObservableObject {
     deinit {
         listener?.remove()
     }
-    
-    
+
     func setUID(_ uid: String?) {
         self.uid = uid
         // ここで listener 開始してるなら、uidセット後に startListening() とか呼ぶ
@@ -67,21 +63,49 @@ final class TripStore: ObservableObject {
 
     /// ✅ Firestoreへ追加（終了ボタンで呼ぶ）
     func addTrip(_ trip: Trip) async throws {
-            guard let uid else {
-                throw NSError(domain: "TripStore", code: 0,
-                              userInfo: [NSLocalizedDescriptionKey: "uidが未設定"])
+        guard let uid else {
+            throw NSError(domain: "TripStore", code: 0,
+                          userInfo: [NSLocalizedDescriptionKey: "uidが未設定"])
+        }
+
+        let ref = db.collection("users")
+            .document(uid)
+            .collection("trips")
+            .document(trip.id.uuidString)
+
+        do {
+            var dict = try Firestore.Encoder().encode(trip)
+
+            // ✅ 二重配列対策：routeLatLons を Firestore に通る形に変換して上書き
+            // - routeLatLons が [[Double]] / [[Any]] になっても落ちないようにする
+            if let nested = dict["routeLatLons"] as? [[Any]] {
+                // lat/lonが交互に並ぶフラット配列として保存（例：[lat, lon, lat, lon, ...]）
+                let flat: [Any] = nested.flatMap { $0 }
+                dict["routeLatLons"] = flat
+            } else if let nested = dict["routeLatLons"] as? [[Double]] {
+                let flat = nested.flatMap { $0 }
+                dict["routeLatLons"] = flat
             }
 
-            try db.collection("users")
-                .document(uid)
-                .collection("trips")
-                .document(trip.id.uuidString)
-                .setData(from: trip, merge: true)
+            print("🔥 encoded trip =", dict)
+            try await ref.setData(dict, merge: true)
+            print("✅ Firestore保存OK")
+
+            if !self.trips.contains(where: { $0.id == trip.id }) {
+                self.trips.insert(trip, at: 0)
+            }
+        } catch {
+            print("❌ encode/setData error:", error)
+            throw error
         }
+    }
 
     /// ✅ Firestoreから削除（＋写真も消す）
     func deleteTrip(_ trip: Trip) async throws {
-        guard let uid else { throw NSError(domain: "TripStore", code: 0, userInfo: [NSLocalizedDescriptionKey: "uidが未設定"]) }
+        guard let uid else {
+            throw NSError(domain: "TripStore", code: 0,
+                          userInfo: [NSLocalizedDescriptionKey: "uidが未設定"])
+        }
 
         // 先にStorageの写真削除（photoPathがある前提）
         for note in trip.notes {
@@ -101,7 +125,10 @@ final class TripStore: ObservableObject {
 
     /// ✅ 写真アップロードして path を返す
     func uploadPhotoJPEG(_ data: Data, tripId: UUID, noteId: UUID) async throws -> String {
-        guard let uid else { throw NSError(domain: "TripStore", code: 0, userInfo: [NSLocalizedDescriptionKey: "uidが未設定"]) }
+        guard let uid else {
+            throw NSError(domain: "TripStore", code: 0,
+                          userInfo: [NSLocalizedDescriptionKey: "uidが未設定"])
+        }
 
         let path = "users/\(uid)/photos/\(tripId.uuidString)/\(noteId.uuidString).jpg"
         let ref = storage.reference(withPath: path)
@@ -109,13 +136,16 @@ final class TripStore: ObservableObject {
         let metadata = StorageMetadata()
         metadata.contentType = "image/jpeg"
 
+        // ✅ アップロードだけする（ここで404は出ない）
         _ = try await ref.putDataAsync(data, metadata: metadata)
+
+        print("✅ uploaded path =", path)
         return path
     }
 
     func loadPhoto(path: String) async throws -> UIImage? {
         let ref = storage.reference(withPath: path)
-        let data = try await ref.data(maxSize: 8 * 1024 * 1024) // 8MB1
+        let data = try await ref.data(maxSize: 8 * 1024 * 1024) // 8MB
         return UIImage(data: data)
     }
 

@@ -64,14 +64,20 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
     /// 写真ファイル名（TripStoreで保存したやつ）を現在地に紐付けて追加
     func addPhotoFilenameNote(_ filename: String) {
         guard let loc = location else { return }
-        notes.append(
-            TravelNote(type: .photo,
-                       latitude: loc.coordinate.latitude,
-                       longitude: loc.coordinate.longitude,
-                       date: Date(),
-                       text: nil,
-                       photoFilename: filename)
+
+        let note = TravelNote(
+            type: .photo,
+            latitude: loc.coordinate.latitude,
+            longitude: loc.coordinate.longitude,
+            date: Date(),
+            text: nil,
+            photoFilename: filename
         )
+
+        notes.append(note)
+
+        print("📍 photo note lat/lon =", note.latitude, note.longitude)
+        print("🧾 notes.count =", notes.count)
     }
 
     // MARK: - Authorization / Updates

@@ -9,6 +9,7 @@ import SwiftUI
 
 struct HistoryMapView: View {
     @EnvironmentObject var tripStore: TripStore
+    @EnvironmentObject var authStore: AuthStore   // ← 追加
 
     var body: some View {
         List {
@@ -46,5 +47,13 @@ struct HistoryMapView: View {
             }
         }
         .navigationTitle("思い出")
+        .onAppear {
+            // ✅ ここが本題：この画面に来たら監視を開始する
+            guard !authStore.uid.isEmpty else {
+                print("❌ HistoryMapView: uidが空なのでbindUserできない")
+                return
+            }
+            tripStore.bindUser(uid: authStore.uid)
+        }
     }
 }

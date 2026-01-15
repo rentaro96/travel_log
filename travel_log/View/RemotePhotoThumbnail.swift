@@ -12,6 +12,8 @@ struct RemotePhotoThumbnail: View {
     @EnvironmentObject var tripStore: TripStore
 
     @State private var image: UIImage?
+    @State private var didStartLoad = false
+    @State private var failed = false
 
     var body: some View {
         Group {
@@ -19,19 +21,34 @@ struct RemotePhotoThumbnail: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
+            } else if failed {
+                // ✅ 失敗時：無限ロードしない（UIはほぼ変わらない）
+                Image(systemName: "photo")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(12)
+                    .foregroundStyle(.secondary)
             } else {
                 ProgressView()
             }
         }
-        .task {
-            await load()
+        .task(id: path) {
+            // ✅ path が変わった時だけロード
+            guard !didStartLoad else { return }
+            didStartLoad = true
+            await loadOnce()
         }
     }
 
-    private func load() async {
+    private func loadOnce() async {
         do {
+            // ✅ すでに取得できてたら何もしない
+            if image != nil { return }
+
             image = try await tripStore.loadPhoto(path: path)
         } catch {
+            // ✅ 404などは「画像が無い」だけ。ここで止める（リトライしない）
+            failed = true
             print("loadPhoto error:", error)
         }
     }

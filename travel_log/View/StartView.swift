@@ -11,6 +11,7 @@ import CoreLocation
 internal import Combine
 import CoreMotion
 import PhotosUI
+import SwiftData
 
 struct StartView: View {
     // MARK: - Stores / Managers
@@ -19,6 +20,7 @@ struct StartView: View {
 
     @EnvironmentObject var tripStore: TripStore
     @EnvironmentObject var authStore: AuthStore
+    @Environment(\.modelContext) private var modelContext
 
     // MARK: - Trip State
     @State private var tripStartedAt: Date? = nil
@@ -47,6 +49,8 @@ struct StartView: View {
     
     
     @State private var currentTripId: UUID? = nil
+    
+    
 
     // MARK: - Body
     var body: some View {
@@ -106,6 +110,12 @@ struct StartView: View {
 
             followButtonOverlay
         }
+        .onAppear {
+            tripStore.setUID(authStore.uid)
+        }
+        .onChange(of: authStore.uid) { _, newValue in
+            tripStore.setUID(newValue)
+        }
     }
 
     private var controlSection: some View {
@@ -117,11 +127,27 @@ struct StartView: View {
                         let trip = finalizeTrip()
                         Task {
                             guard !authStore.uid.isEmpty else {
-                                print("❌ authStore.uid が空。ログイン完了前に保存しようとしてる")
+                                print("❌ uidが空。ログイン完了前なので保存しない")
                                 return
                             }
-
+                            
                             tripStore.setUID(authStore.uid)
+                            let route = locationManager.stopRecording()
+                            let notes = locationManager.notes
+
+                            let started = tripStartedAt ?? Date()
+                            let ended = Date()
+
+                            let title = started.formatted(date: .abbreviated, time: .shortened)
+
+                            let trip = Trip(title: title, startedAt: started, endedAt: ended, route: route, notes: notes)
+                            
+
+                            tripStartedAt = nil
+                            locationManager.notes.removeAll()
+                            isRunning = false
+                                isPaused = false
+                                showActionButtons = false
 
                             do {
                                 
@@ -406,14 +432,34 @@ struct StartView: View {
     }
 
     private func addPhotoNote(imageData: Data) {
-        guard let loc = locationManager.location else { return }
-        guard let tripId = currentTripId else { return } // 旅開始前に写真押したら何もしない
+
+        // ✅ 先に uid をチェック（ここが遅いと upload が走って失敗する）
+        guard !authStore.uid.isEmpty else {
+            print("❌ uidが空なので写真アップロードできない（ログイン待ち）")
+            return
+        }
+
+        // ✅ trip中じゃないと保存しない
+        guard let tripId = currentTripId else {
+            print("❌ tripIdが無い（旅開始前）")
+            return
+        }
+
+        // ✅ 位置が無いとピンが立たない
+        guard let loc = locationManager.location else {
+            print("❌ locationが無い")
+            return
+        }
 
         let noteId = UUID()
 
         Task {
             do {
+                // ✅ まずアップロード（ここで成功した path を使う）
                 let path = try await tripStore.uploadPhotoJPEG(imageData, tripId: tripId, noteId: noteId)
+                print("✅ uploaded path =", path)
+
+                // ✅ UI更新はMainActorで
                 await MainActor.run {
                     locationManager.notes.append(
                         TravelNote(
@@ -421,12 +467,14 @@ struct StartView: View {
                             latitude: loc.coordinate.latitude,
                             longitude: loc.coordinate.longitude,
                             date: Date(),
-                            steps: steps,
-                            distanceMeters: routeDistanceMeters(),
+                            text: nil,
                             photoFilename: path
                         )
                     )
+                    print("📍 photo note lat/lon =", loc.coordinate.latitude, loc.coordinate.longitude)
+                    print("🧾 notes.count =", locationManager.notes.count)
                 }
+
             } catch {
                 print("uploadPhotoJPEG error:", error)
             }

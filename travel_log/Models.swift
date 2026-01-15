@@ -58,6 +58,7 @@ struct TravelNote: Identifiable, Codable, Equatable {
 
 // MARK: - Trip
 
+
 struct Trip: Identifiable, Codable {
     let id: UUID
     var title: String
@@ -115,3 +116,4 @@ extension Trip: CustomStringConvertible {
         """
     }
 }
+

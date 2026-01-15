@@ -12,27 +12,39 @@ import CoreLocation
 struct TripDetailView: View {
     let trip: Trip
     @EnvironmentObject var tripStore: TripStore
-    
-    // Map camera
+
     @State private var position: MapCameraPosition = .automatic
     @State private var hasCenteredOnce = false
-    
-    // ✅ sheet(item:) 用（これだけ）
     @State private var selectedNote: TravelNote? = nil
-    
+
+    // ✅ 表示用に軽量化したデータ（UIは同じ、描画だけ軽くなる）
+    private var routeForMap: [CLLocationCoordinate2D] {
+        trip.route.downsample(maxCount: 900) // 300〜1200で調整OK
+    }
+
+    private var notesForMap: [TravelNote] {
+        // ピンが多いとMapが重いので上限
+        // たくさんある場合は新しい順で最大150個だけ表示
+        let sorted = trip.notes.sorted { $0.date > $1.date }
+        return Array(sorted.prefix(150))
+    }
+
+    private var sortedNotesForList: [TravelNote] {
+        // List用はソートを1回だけ
+        trip.notes.sorted { $0.date < $1.date }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // ===== Map（ルート線＋ピン）=====
             Map(position: $position, interactionModes: .all) {
                 mapPolyline
                 mapAnnotations
             }
             .frame(height: 320)
             .onAppear { centerMapIfNeeded() }
-            
+
             Divider()
-            
-            // ===== 下：ノート一覧（サムネ付き）=====
+
             List {
                 Section {
                     HStack {
@@ -41,19 +53,21 @@ struct TripDetailView: View {
                         Text("\(trip.route.count)")
                             .foregroundStyle(.secondary)
                     }
+
                     HStack {
                         Text("メモ・写真")
                         Spacer()
                         Text("\(trip.notes.count)")
                             .foregroundStyle(.secondary)
                     }
+
                     HStack {
                         Text("歩数")
                         Spacer()
                         Text("\(trip.steps)")
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     HStack {
                         Text("距離")
                         Spacer()
@@ -61,7 +75,7 @@ struct TripDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                
+
                 Section("写真・メモ（時系列）") {
                     notesList
                 }
@@ -69,31 +83,29 @@ struct TripDetailView: View {
         }
         .navigationTitle(trip.title)
         .navigationBarTitleDisplayMode(.inline)
-        
-        // ✅ ここが本命：nilじゃない時だけ開くので白くならない
         .sheet(item: $selectedNote) { note in
             NoteDetailSheet(note: note)
                 .environmentObject(tripStore)
         }
     }
-    
-    // MARK: - View Builders
-    
+
+    // MARK: - Map Content
+
     @MapContentBuilder
     private var mapPolyline: some MapContent {
-        if trip.route.count >= 2 {
-            MapPolyline(coordinates: trip.route)
+        if routeForMap.count >= 2 {
+            MapPolyline(coordinates: routeForMap)
                 .stroke(.blue, lineWidth: 8)
         }
     }
 
-    // Mapの中で使う：ピン
     @MapContentBuilder
     private var mapAnnotations: some MapContent {
-        ForEach(trip.notes) { note in
+        // ✅ ピンは最大150個に制限（多すぎるとMapが固まる）
+        ForEach(notesForMap) { note in
             Annotation(
                 note.type == .photo ? "Photo" : "Memo",
-                coordinate: note.coordinate
+                coordinate: CLLocationCoordinate2D(latitude: note.latitude, longitude: note.longitude)
             ) {
                 Button {
                     selectedNote = note
@@ -109,34 +121,35 @@ struct TripDetailView: View {
             }
         }
     }
-    
+
+    // MARK: - Notes List
+
     @ViewBuilder
     private var notesList: some View {
-        ForEach(trip.notes.sorted { $0.date < $1.date }) { note in
+        // ✅ body内で毎回 sort しない（sortedNotesForList を使う）
+        ForEach(sortedNotesForList) { note in
             Button {
                 selectedNote = note
             } label: {
                 HStack(spacing: 12) {
                     if note.type == .photo,
                        let fn = note.photoFilename {
-
                         RemotePhotoThumbnail(path: fn)
                             .frame(width: 56, height: 56)
                             .clipped()
                             .clipShape(RoundedRectangle(cornerRadius: 10))
-                    }
-                        else {
+                    } else {
                         Image(systemName: note.type == .photo ? "camera.fill" : "text.bubble.fill")
                             .frame(width: 56, height: 56)
                             .background(.thinMaterial)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
-                    
+
                     VStack(alignment: .leading, spacing: 4) {
                         Text(note.date.formatted(date: .abbreviated, time: .shortened))
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        
+
                         if note.type == .memo {
                             Text(note.text ?? "")
                                 .foregroundStyle(.primary)
@@ -146,18 +159,20 @@ struct TripDetailView: View {
                                 .foregroundStyle(.primary)
                         }
                     }
-                    
+
                     Spacer()
                 }
             }
         }
     }
-    
+
+    // MARK: - Center Map
+
     private func centerMapIfNeeded() {
         guard !hasCenteredOnce else { return }
         hasCenteredOnce = true
 
-        if let first = trip.route.first {
+        if let first = routeForMap.first {
             position = .region(MKCoordinateRegion(
                 center: first,
                 latitudinalMeters: 1500,
@@ -165,10 +180,22 @@ struct TripDetailView: View {
             ))
         } else if let firstNote = trip.notes.first {
             position = .region(MKCoordinateRegion(
-                center: firstNote.coordinate,
+                center: CLLocationCoordinate2D(latitude: firstNote.latitude, longitude: firstNote.longitude),
                 latitudinalMeters: 1500,
                 longitudinalMeters: 1500
             ))
+        }
+    }
+}
+
+// MARK: - Downsample helper
+
+private extension Array {
+    func downsample(maxCount: Int) -> [Element] {
+        guard maxCount > 0, count > maxCount else { return self }
+        let strideVal = Swift.max(1, count / maxCount)
+        return self.enumerated().compactMap { (i, e) in
+            i % strideVal == 0 ? e : nil
         }
     }
 }
