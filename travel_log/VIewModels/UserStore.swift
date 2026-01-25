@@ -53,8 +53,9 @@ final class UserStore: ObservableObject {
                 self.friendLinks = links
 
                 // friend uid 一覧を作る
-                let friendUIDs = links.map { $0.uid }
+                let friendUIDs = links.compactMap { $0.id }  // ✅ docIdを使う
                 Task { await self.fetchFriendUsers(friendUIDs: friendUIDs) }
+
             }
     }
 

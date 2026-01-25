@@ -9,12 +9,12 @@ import Foundation
 import FirebaseFirestore
 
 struct UserPublic: Codable, Identifiable {
-    @DocumentID var id: String?   // = uid
-    let uid: String
+    @DocumentID var id: String?      // = uid
     let friendCode: String
     let createdAt: Date?
-    
-    // 例：表示名を持ってるなら追加
-    // let displayName: String?
+
+    // uidはdocIdから作る
+    var uid: String { id ?? "" }
 }
+
 

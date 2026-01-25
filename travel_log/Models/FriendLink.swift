@@ -9,8 +9,11 @@ import Foundation
 import FirebaseFirestore
 
 struct FriendLink: Codable, Identifiable {
-    @DocumentID var id: String?      // friends/{docId}
-    let uid: String                  // friend uid
+    @DocumentID var id: String?     // ← friendsのdocIdが入る（= friend uid）
     let createdAt: Date?
+    
+    // uid フィールドは不要にする
+    var uid: String { id ?? "" }
 }
+
 
