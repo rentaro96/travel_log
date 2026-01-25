@@ -17,6 +17,8 @@ struct StartView: View {
     // MARK: - Stores / Managers
     @StateObject var locationManager = LocationManager()
     @State private var pedometer: CMPedometer? = CMPedometer()
+    
+    @State private var isStopping = false
 
     @EnvironmentObject var tripStore: TripStore
     @EnvironmentObject var authStore: AuthStore
@@ -355,9 +357,11 @@ struct StartView: View {
     }
 
     private func stopTrip() {
+        guard !isStopping else { return }
+        isStopping = true
+
         pedometer?.stopUpdates()
 
-        // ルート確定（stopRecordingは1回だけ）
         let route = locationManager.stopRecording()
         let notes = locationManager.notes
 
@@ -376,23 +380,23 @@ struct StartView: View {
             distanceMeters: distance
         )
 
-        // Firestore保存（async）
         Task {
+            defer { isStopping = false } // ここで解除
+
             do {
                 try await tripStore.addTrip(trip)
             } catch {
                 print("Firestore保存失敗:", error)
             }
+
+            tripStartedAt = nil
+            locationManager.notes.removeAll()
+            isRunning = false
+            isPaused = false
+            showActionButtons = false
         }
-
-        // 後始末
-        tripStartedAt = nil
-        locationManager.notes.removeAll()
-
-        isRunning = false
-        isPaused = false
-        showActionButtons = false
     }
+
 
     // MARK: - Helpers
 

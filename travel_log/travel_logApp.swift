@@ -38,6 +38,6 @@ struct YourApp: App {
                 }
             
         }
-        .modelContainer(for: [TripRecord.self])
+        //.modelContainer(for: [TripRecord.self])
     }
 }
