@@ -44,21 +44,27 @@ final class TripStore: ObservableObject {
 
         // users/{uid}/trips を監視（リアルタイム）
         listener = db.collection("users")
-            .document(uid)
-            .collection("trips")
-            .order(by: "startedAt", descending: true)
-            .addSnapshotListener { [weak self] snapshot, error in
-                guard let self else { return }
-                if let error {
-                    print("TripStore listen error:", error)
-                    return
-                }
-                guard let snapshot else { return }
+          .document(uid)
+          .collection("trips")
+          .order(by: "startedAt", descending: true)
+          .addSnapshotListener { [weak self] snapshot, error in
+              guard let self else { return }
+              if let error {
+                  print("TripStore listen error:", error)
+                  return
+              }
+              guard let snapshot else { return }
 
-                self.trips = snapshot.documents.compactMap { doc in
-                    try? doc.data(as: Trip.self)
-                }
-            }
+              self.trips = snapshot.documents.compactMap { doc in
+                  do {
+                      return try doc.data(as: Trip.self)
+                  } catch {
+                      print("❌ decode failed docId=\(doc.documentID):", error)
+                      print("📦 raw data:", doc.data())   // これが超重要
+                      return nil
+                  }
+              }
+          }
     }
 
     /// ✅ Firestoreへ追加（終了ボタンで呼ぶ）

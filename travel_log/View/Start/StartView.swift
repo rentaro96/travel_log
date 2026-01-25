@@ -141,6 +141,7 @@ struct StartView: View {
                 }
             } else {
                 CustomButton(title: "旅を始める！") {
+                    print("なぜ")
                     startTrip()
                     currentTripId = UUID()
                 }
