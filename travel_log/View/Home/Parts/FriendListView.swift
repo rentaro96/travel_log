@@ -15,15 +15,22 @@ struct FriendListView: View {
     var body: some View {
         NavigationStack {
             List(userStore.friends) { user in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(user.displayName?.isEmpty == false ? user.displayName! : "名前未設定")
-                        .font(.headline)
+                NavigationLink {
+                    FriendProfileView(user: user)
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(user.displayName?.isEmpty == false
+                             ? user.displayName!
+                             : "名前未設定")
+                            .font(.headline)
 
-                    Text("ID: \(user.friendCode)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        Text("ID: \(user.friendCode)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
+
 
             .navigationTitle("フレンド")
             .toolbar {
