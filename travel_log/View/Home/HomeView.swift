@@ -17,9 +17,9 @@ struct HomeView: View {
                     Image("tabirogu")
                         .resizable()
                         .frame(width:350,height:350)
-                    CustomButton(title: "使い方！", action: {print("hello")})
+                    CustomButton(title: "使い方！", action: {print("とろろ")})
                     CustomNavButton(title: "友達を追加", destination: FriendAddView())
-                    CustomButton(title: "設定", action: {print("hello")})
+                    CustomButton(title: "設定", action: {print("とろろ")})
                     
                     Spacer(minLength: 80)
                     
