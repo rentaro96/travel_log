@@ -66,6 +66,20 @@ final class TripStore: ObservableObject {
               }
           }
     }
+    
+    func updateTripVisibility(tripId: UUID, isPublic: Bool) async throws {
+        guard let uid else {
+            throw NSError(domain: "TripStore", code: 0,
+                          userInfo: [NSLocalizedDescriptionKey: "uidが未設定"])
+        }
+
+        try await db.collection("users")
+            .document(uid)
+            .collection("trips")
+            .document(tripId.uuidString)
+            .setData(["isPublic": isPublic], merge: true)
+    }
+
 
     /// ✅ Firestoreへ追加（終了ボタンで呼ぶ）
     func addTrip(_ trip: Trip) async throws {

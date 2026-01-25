@@ -16,6 +16,8 @@ struct TripDetailView: View {
     @State private var position: MapCameraPosition = .automatic
     @State private var hasCenteredOnce = false
     @State private var selectedNote: TravelNote? = nil
+    @State private var isPublicState: Bool = false
+
 
     // ✅ 表示用に軽量化したデータ（UIは同じ、描画だけ軽くなる）
     private var routeForMap: [CLLocationCoordinate2D] {
@@ -46,6 +48,20 @@ struct TripDetailView: View {
             Divider()
 
             List {
+                Section {
+                        Toggle("この旅を公開する", isOn: $isPublicState)
+                            .onAppear {
+                                isPublicState = trip.isPublic
+                            }
+                            .onChange(of: isPublicState) { newValue in
+                                Task {
+                                    try? await tripStore.updateTripVisibility(
+                                        tripId: trip.id,
+                                        isPublic: newValue
+                                    )
+                                }
+                            }
+                    }
                 Section {
                     HStack {
                         Text("ルート点数")

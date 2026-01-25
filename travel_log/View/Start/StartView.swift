@@ -52,6 +52,10 @@ struct StartView: View {
     
     @State private var currentTripId: UUID? = nil
     
+    @State private var showVisibilityAlert = false
+    @State private var pendingTrip: Trip? = nil
+
+    
     
 
     // MARK: - Body
@@ -83,6 +87,17 @@ struct StartView: View {
             steps: steps,
             distanceMeters: currentDistance
         )
+        .alert("この旅を公開しますか？", isPresented: $showVisibilityAlert) {
+            Button("非公開で保存", role: .cancel) {
+                savePendingTrip(isPublic: false)
+            }
+            Button("公開して保存") {
+                savePendingTrip(isPublic: true)
+            }
+        } message: {
+            Text("公開にするとフレンドがこの旅を見られます。")
+        }
+
     }
 
     // MARK: - Sections
@@ -345,8 +360,12 @@ struct StartView: View {
             route: route,
             notes: notes,
             steps: steps,
-            distanceMeters: distance
+            distanceMeters: distance,
+            isPublic: false
         )
+        
+        pendingTrip = trip
+            showVisibilityAlert = true
 
         Task {
             defer { isStopping = false } // ここで解除
@@ -364,6 +383,31 @@ struct StartView: View {
             showActionButtons = false
         }
     }
+    
+    private func savePendingTrip(isPublic: Bool) {
+        guard var trip = pendingTrip else { return }
+
+        trip.isPublic = isPublic
+
+        Task {
+            do {
+                try await tripStore.addTrip(trip)
+
+                // ✅ 保存成功したら後始末
+                tripStartedAt = nil
+                locationManager.notes.removeAll()
+
+                isRunning = false
+                isPaused = false
+                showActionButtons = false
+
+                pendingTrip = nil
+            } catch {
+                print("Firestore保存失敗:", error)
+            }
+        }
+    }
+
 
 
     // MARK: - Helpers

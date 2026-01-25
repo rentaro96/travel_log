@@ -34,7 +34,7 @@ final class FriendTripStore: ObservableObject {
         listener = db.collection("users")
             .document(friendUid)
             .collection("trips")
-            .order(by: "startedAt", descending: true)
+            .whereField("isPublic", isEqualTo: true)
             .addSnapshotListener { [weak self] snap, error in
                 guard let self else { return }
                 if let error {
@@ -42,9 +42,9 @@ final class FriendTripStore: ObservableObject {
                     return
                 }
 
-                self.trips = snap?.documents.compactMap { doc in
-                    try? doc.data(as: Trip.self)
-                } ?? []
+                let trips = snap?.documents.compactMap { try? $0.data(as: Trip.self) } ?? []
+                self.trips = trips.sorted { $0.startedAt > $1.startedAt } // ✅ 端末で並べ替え
             }
+
     }
 }

@@ -71,9 +71,11 @@ struct Trip: Identifiable, Codable {
     let notes: [TravelNote]
     let steps: Int
     let distanceMeters: Double
+    
+    var isPublic: Bool = false
 
     enum CodingKeys: String, CodingKey {
-        case id, title, startedAt, endedAt, routeLatLons, notes, steps, distanceMeters
+        case id, title, startedAt, endedAt, routeLatLons, notes, steps, distanceMeters, isPublic
     }
 
     // ✅ 通常init（あなたの今のままでOK）
@@ -85,6 +87,7 @@ struct Trip: Identifiable, Codable {
         notes: [TravelNote],
         steps: Int = 0,
         distanceMeters: Double = 0,
+        isPublic: Bool = false,
         id: UUID = UUID()
     ) {
         self.id = id
@@ -95,6 +98,7 @@ struct Trip: Identifiable, Codable {
         self.notes = notes
         self.steps = steps
         self.distanceMeters = distanceMeters
+        self.isPublic = isPublic
     }
 
     // ✅ ここが重要：Firestoreの「フラット配列」でも「二重配列」でも読める
@@ -108,6 +112,8 @@ struct Trip: Identifiable, Codable {
         notes = try c.decode([TravelNote].self, forKey: .notes)
         steps = try c.decode(Int.self, forKey: .steps)
         distanceMeters = try c.decode(Double.self, forKey: .distanceMeters)
+        
+        isPublic = try c.decodeIfPresent(Bool.self, forKey: .isPublic) ?? false
 
         // ① まず [[Double]] を試す（昔の形式）
         if let nested = try? c.decode([[Double]].self, forKey: .routeLatLons) {
