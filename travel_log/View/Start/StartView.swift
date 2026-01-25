@@ -126,40 +126,7 @@ struct StartView: View {
                 HStack(spacing: 20) {
                     CustomButton3(title: "終了") {
                         stopTrip()
-                        let trip = finalizeTrip()
-                        Task {
-                            guard !authStore.uid.isEmpty else {
-                                print("❌ uidが空。ログイン完了前なので保存しない")
-                                return
-                            }
-                            
-                            tripStore.setUID(authStore.uid)
-                            let route = locationManager.stopRecording()
-                            let notes = locationManager.notes
-
-                            let started = tripStartedAt ?? Date()
-                            let ended = Date()
-
-                            let title = started.formatted(date: .abbreviated, time: .shortened)
-
-                            let trip = Trip(title: title, startedAt: started, endedAt: ended, route: route, notes: notes)
-                            
-
-                            tripStartedAt = nil
-                            locationManager.notes.removeAll()
-                            isRunning = false
-                                isPaused = false
-                                showActionButtons = false
-
-                            do {
-                                
-                                try await tripStore.addTrip(trip)
-                                print(trip)
-                                print("✅ Firestore保存OK")
-                            } catch {
-                                print("❌ Firestore保存失敗:", error)
-                            }
-                        }
+                        
                     }
 
                     if isPaused {
