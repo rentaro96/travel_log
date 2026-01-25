@@ -36,6 +36,8 @@ struct YourApp: App {
                 .environmentObject(tripStore)
                 .environmentObject(authStore)
                 .environmentObject(userStore)
+                .environmentObject(UserStore())
+
                 .task {
                     await authStore.signInIfNeeded()
                 }

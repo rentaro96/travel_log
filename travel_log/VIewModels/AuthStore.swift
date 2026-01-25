@@ -63,14 +63,18 @@ final class AuthStore: ObservableObject {
             // ✅ 無ければ生成して保存（1回だけ）
             let code = generateFriendCode(length: 6)
             friendCode = code
+            
+            let initialDisplayName = code
 
             let data: [String: Any] = [
                 "friendCode": code,
+                "displayName": initialDisplayName,
                 "createdAt": FieldValue.serverTimestamp()
+                
             ]
 
             try await ref.setData(data, merge: true) // merge true の方が安全
-            print("✅ users/\(uid) を作成しました friendCode=\(code)")
+            print("✅ users/\(uid) を作成しました friendCode=\(code) displayName=\(initialDisplayName)")
 
         } catch {
             // ✅ ここが見えるようになるのが重要（ルール弾き/設定ミスが分かる）

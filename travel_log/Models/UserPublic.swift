@@ -11,10 +11,10 @@ import FirebaseFirestore
 struct UserPublic: Codable, Identifiable {
     @DocumentID var id: String?      // = uid
     let friendCode: String
-    let createdAt: Date?
+        let displayName: String?     // ✅ これが「ユーザーが設定する名前」
+        let createdAt: Date?
 
-    // uidはdocIdから作る
-    var uid: String { id ?? "" }
+        var uid: String { id ?? "" }
 }
 
 

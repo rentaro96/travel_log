@@ -20,6 +20,15 @@ final class UserStore: ObservableObject {
     private var uid: String?
 
     deinit { listener?.remove() }
+    
+    func updateDisplayName(myUid: String, displayName: String) async throws {
+        try await db.collection("users")
+            .document(myUid)
+            .setData([
+                "displayName": displayName,
+                "updatedAt": FieldValue.serverTimestamp()
+            ], merge: true)
+    }
 
     func bindUser(uid: String) {
         self.uid = uid
