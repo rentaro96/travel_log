@@ -12,6 +12,7 @@ struct FriendAddView: View {
     @EnvironmentObject var authStore: AuthStore
     @StateObject private var friendVM = FriendViewModel()
     @StateObject private var requestsVM = FriendRequestsViewModel()
+    @State private var showFriendList = false
 
     @State private var inputCode: String = ""
 
@@ -130,6 +131,24 @@ struct FriendAddView: View {
             }
             .padding()
             .navigationTitle("フレンド追加")
+            
+            .toolbar {
+                                ToolbarItem(placement: .navigationBarTrailing) {
+                                    Button {
+                                        showFriendList = true
+                                    } label: {
+                                        Image(systemName: "person.2")
+                                    }
+                                }
+                            }
+
+                            // ✅sheet
+                            .sheet(isPresented: $showFriendList) {
+                                FriendListView()
+                                    .environmentObject(authStore)   // 念のため
+                                    // userStoreはEnvironmentObjectで流してるなら不要だけど、
+                                    // もし事故るなら .environmentObject(userStore) を足す
+                            }
             .task {
                 guard !authStore.uid.isEmpty else { return }
                 requestsVM.startListening(myUid: authStore.uid)

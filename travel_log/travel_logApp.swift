@@ -27,12 +27,15 @@ struct YourApp: App {
     
     @StateObject private var tripStore = TripStore()
     
+    @StateObject private var userStore = UserStore()
+    
     
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(tripStore)
                 .environmentObject(authStore)
+                .environmentObject(userStore)
                 .task {
                     await authStore.signInIfNeeded()
                 }
