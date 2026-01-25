@@ -64,15 +64,19 @@ struct Trip: Identifiable, Codable {
     var title: String
     let startedAt: Date
     let endedAt: Date
-    // ルートは軽量保存（[[lat, lon], ...]）
+
+    // ルートはアプリ内では [[lat, lon], ...] で持つ
     let routeLatLons: [[Double]]
 
     let notes: [TravelNote]
-
-    // ✅ 旅全体の歩数と距離
     let steps: Int
     let distanceMeters: Double
 
+    enum CodingKeys: String, CodingKey {
+        case id, title, startedAt, endedAt, routeLatLons, notes, steps, distanceMeters
+    }
+
+    // ✅ 通常init（あなたの今のままでOK）
     init(
         title: String,
         startedAt: Date,
@@ -93,6 +97,35 @@ struct Trip: Identifiable, Codable {
         self.distanceMeters = distanceMeters
     }
 
+    // ✅ ここが重要：Firestoreの「フラット配列」でも「二重配列」でも読める
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        startedAt = try c.decode(Date.self, forKey: .startedAt)
+        endedAt = try c.decode(Date.self, forKey: .endedAt)
+        notes = try c.decode([TravelNote].self, forKey: .notes)
+        steps = try c.decode(Int.self, forKey: .steps)
+        distanceMeters = try c.decode(Double.self, forKey: .distanceMeters)
+
+        // ① まず [[Double]] を試す（昔の形式）
+        if let nested = try? c.decode([[Double]].self, forKey: .routeLatLons) {
+            routeLatLons = nested
+            return
+        }
+
+        // ② ダメなら [Double]（今のFirestore形式）を読み、[[Double]]に戻す
+        let flat = (try? c.decode([Double].self, forKey: .routeLatLons)) ?? []
+        var rebuilt: [[Double]] = []
+        var i = 0
+        while i + 1 < flat.count {
+            rebuilt.append([flat[i], flat[i + 1]])
+            i += 2
+        }
+        routeLatLons = rebuilt
+    }
+
     var route: [CLLocationCoordinate2D] {
         routeLatLons.compactMap { arr in
             guard arr.count == 2 else { return nil }
@@ -100,6 +133,7 @@ struct Trip: Identifiable, Codable {
         }
     }
 }
+
 
 extension Trip: CustomStringConvertible {
     var description: String {

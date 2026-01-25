@@ -84,15 +84,14 @@ final class TripStore: ObservableObject {
 
             // ✅ 二重配列対策：routeLatLons を Firestore に通る形に変換して上書き
             // - routeLatLons が [[Double]] / [[Any]] になっても落ちないようにする
-            if let nested = dict["routeLatLons"] as? [[Any]] {
-                // lat/lonが交互に並ぶフラット配列として保存（例：[lat, lon, lat, lon, ...]）
-                let flat: [Any] = nested.flatMap { $0 }
-                dict["routeLatLons"] = flat
-            } else if let nested = dict["routeLatLons"] as? [[Double]] {
+            if let nested = dict["routeLatLons"] as? [[Double]] {
+                dict["routeLatLons"] = nested.flatMap { $0 }   // [Double]
+            }
+            else if let nested = dict["routeLatLons"] as? [[Double]] {
                 let flat = nested.flatMap { $0 }
                 dict["routeLatLons"] = flat
             }
-
+            
             print("🔥 encoded trip =", dict)
             try await ref.setData(dict, merge: true)
             print("✅ Firestore保存OK")
