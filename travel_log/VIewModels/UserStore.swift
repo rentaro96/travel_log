@@ -14,12 +14,84 @@ final class UserStore: ObservableObject {
     
     @Published private(set) var friends: [UserPublic] = []
     @Published private(set) var friendLinks: [FriendLink] = []
+    @Published var blockedUsers: [UserPublic] = []
+
     
     private let db = Firestore.firestore()
     private var listener: ListenerRegistration?
     private var uid: String?
     
     deinit { listener?.remove() }
+    
+    func bindBlockedUsers(myUid: String) {
+        let ref = db.collection("users").document(myUid).collection("blocked")
+
+        ref.addSnapshotListener { [weak self] snap, err in
+            if let err = err {
+                print("❌ bindBlockedUsers error:", err)
+                return
+            }
+            let ids = snap?.documents.map { $0.documentID } ?? []
+
+            Task { [weak self] in
+                await self?.fetchBlockedUsers(blockedUids: ids) // ✅ これでOK
+            }
+        }
+    }
+
+    func fetchBlockedUsers(blockedUids: [String]) async {
+        print("✅ fetchBlockedUsers called blockedUids =", blockedUids)
+
+        guard !blockedUids.isEmpty else {
+            print("✅ blockedUids empty -> blockedUsers = []")
+            blockedUsers = []
+            return
+        }
+
+        do {
+            var results: [UserPublic] = []
+            let chunks = blockedUids.chunked(into: 10)
+
+            for chunk in chunks {
+                print("🔎 querying users_public docID in:", chunk)
+
+                let snap = try await db.collection("users_public")
+                    .whereField("uid", in: chunk)
+                    .getDocuments()
+                
+
+
+                print("📄 snap.count =", snap.documents.count)
+
+                let users: [UserPublic] = snap.documents.compactMap { doc in
+                    do {
+                        let u = try doc.data(as: UserPublic.self)
+                        return u
+                    } catch {
+                        print("❌ decode failed docId=\(doc.documentID):", error)
+                        print("📦 raw data:", doc.data())
+                        return nil
+                    }
+                }
+
+                results.append(contentsOf: users)
+            }
+
+            let map = Dictionary(uniqueKeysWithValues: results.map { ($0.uid, $0) })
+            blockedUsers = blockedUids.compactMap { map[$0] }
+
+            print("✅ blockedUsers.count =", blockedUsers.count)
+
+        } catch {
+            print("❌ fetchBlockedUsers error:", error)
+        }
+    }
+
+
+
+    
+
+
     
     func blockUser(myUid: String, targetUid: String) async throws {
         guard !myUid.isEmpty, !targetUid.isEmpty else { return }
@@ -201,11 +273,16 @@ final class UserStore: ObservableObject {
 
 
 // MARK: - helper
+
 private extension Array {
     func chunked(into size: Int) -> [[Element]] {
         guard size > 0 else { return [self] }
-        return stride(from: 0, to: count, by: size).map {
-            Array(self[$0..<Swift.min($0 + size, count)])
+        var res: [[Element]] = []
+        var i = 0
+        while i < count {
+            res.append(Array(self[i..<Swift.min(i + size, count)]))
+            i += size
         }
+        return res
     }
 }

@@ -22,6 +22,8 @@ final class AuthStore: ObservableObject {
 
     func signInIfNeeded() async {
         print("✅ signInIfNeeded called")
+        print("Auth current uid =", Auth.auth().currentUser?.uid ?? "nil")
+        print("authStore.uid     =", uid)
         status = "ログイン確認中…"
 
         // ✅ 既にログインしてるなら、その uid を使う（再ログインしない）
@@ -38,6 +40,7 @@ final class AuthStore: ObservableObject {
             let result = try await Auth.auth().signInAnonymously()
             uid = result.user.uid
             await createUserIfNeeded()
+            
             status = "匿名ログイン成功"
         } catch {
             status = "ログイン失敗: \(error.localizedDescription)"
@@ -54,7 +57,7 @@ final class AuthStore: ObservableObject {
         do {
             let snapshot = try await ref.getDocument()
 
-            // ✅ 既に users/{uid} がある → friendCode を読む（固定）
+            // ===== 既存ユーザー =====
             if snapshot.exists {
                 let data = snapshot.data() ?? [:]
 
@@ -62,21 +65,28 @@ final class AuthStore: ObservableObject {
                     friendCode = code
                 }
 
-                // ✅ blockedUids 読み込み
                 if let arr = data["blockedUids"] as? [String] {
                     blockedUids = Set(arr)
                 } else {
                     blockedUids = []
                 }
 
+                // ✅ users_public を必ず同期
+                try await db.collection("users_public")
+                    .document(uid)
+                    .setData([
+                        "uid": uid,
+                        "friendCode": friendCode,
+                        "displayName": data["displayName"] as? String ?? friendCode,
+                        "createdAt": FieldValue.serverTimestamp()
+                    ], merge: true)
+
                 return
             }
 
-
-            // ✅ 無ければ生成して保存（1回だけ）
+            // ===== 新規ユーザー =====
             let code = generateFriendCode(length: 6)
             friendCode = code
-            
             let initialDisplayName = code
 
             let data: [String: Any] = [
@@ -84,18 +94,28 @@ final class AuthStore: ObservableObject {
                 "displayName": initialDisplayName,
                 "blockedUids": [],
                 "createdAt": FieldValue.serverTimestamp()
-                
             ]
 
-            try await ref.setData(data, merge: true) // merge true の方が安全
-            print("✅ users/\(uid) を作成しました friendCode=\(code) displayName=\(initialDisplayName)")
+            try await ref.setData(data, merge: true)
+
+            // ✅ 公開プロフィール作成
+            try await db.collection("users_public")
+                .document(uid)
+                .setData([
+                    "uid": uid,
+                    "friendCode": code,
+                    "displayName": initialDisplayName,
+                    "createdAt": FieldValue.serverTimestamp()
+                ], merge: true)
+
+            print("✅ users & users_public created for uid =", uid)
 
         } catch {
-            // ✅ ここが見えるようになるのが重要（ルール弾き/設定ミスが分かる）
             status = "Firestore失敗: \(error.localizedDescription)"
             print("❌ Firestore create/read 失敗:", error)
         }
     }
+
     
     func block(uid targetUid: String) async throws {
         guard !uid.isEmpty else { return }

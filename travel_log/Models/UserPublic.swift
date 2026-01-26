@@ -1,20 +1,13 @@
-//
-//  UserPublic.swift
-//  travel_log
-//
-//  Created by 鈴木廉太郎 on 2026/01/25.
-//
-
 import Foundation
 import FirebaseFirestore
 
 struct UserPublic: Codable, Identifiable {
-    @DocumentID var id: String?      // = uid
+    @DocumentID var docId: String?
+    let uid: String               // ✅ 必須
     let friendCode: String
-        let displayName: String?     // ✅ これが「ユーザーが設定する名前」
-        let createdAt: Date?
+    let displayName: String?
+    let createdAt: Date?
 
-        var uid: String { id ?? "" }
+    var id: String { uid }
 }
-
 

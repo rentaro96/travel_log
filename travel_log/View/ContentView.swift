@@ -22,6 +22,9 @@ struct ContentView: View {
             HomeView()
                 .tabItem { Label("", systemImage: "house.fill") }
                 .tag(1)
+                .task {
+                                await authStore.signInIfNeeded()   // ✅ ここだけ
+                            }
             
             NavigationStack {
                 HistoryView()
