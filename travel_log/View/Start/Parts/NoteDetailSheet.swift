@@ -11,7 +11,7 @@ import UIKit
 struct NoteDetailSheet: View {
     let note: TravelNote
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var tripStore: TripStore
+    
     
     @State private var image: UIImage? = nil
     @State private var loadError: String? = nil
@@ -28,7 +28,14 @@ struct NoteDetailSheet: View {
                                 .scaledToFit()
                                 .clipShape(RoundedRectangle(cornerRadius: 16))
                         } else {
-                            ProgressView("読み込み中…")
+                            VStack(alignment: .leading, spacing: 8) {
+                                ProgressView("読み込み中…")
+                                if let loadError {
+                                    Text(loadError)
+                                        .font(.footnote)
+                                        .foregroundStyle(.red)
+                                }
+                            }
                         }
                     }
 
@@ -61,19 +68,14 @@ struct NoteDetailSheet: View {
                 guard note.type == .photo,
                       let filename = note.photoFilename else { return }
 
-                Task {
-                    do {
-                        let img = try await tripStore.loadPhoto(path: filename)
-                        await MainActor.run {
-                            self.image = img
-                        }
-                    } catch {
-                        await MainActor.run {
-                            self.loadError = error.localizedDescription
-                        }
-                    }
+                do {
+                    image = try LocalPhotoStore.loadImage(filename: filename)
+                } catch {
+                    loadError = "画像の読み込みに失敗しました: \(error.localizedDescription)"
                 }
             }
+
         }
     }
 }
+

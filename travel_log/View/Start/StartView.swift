@@ -449,14 +449,8 @@ struct StartView: View {
 
     private func addPhotoNote(imageData: Data) {
 
-        // ✅ 先に uid をチェック（ここが遅いと upload が走って失敗する）
-        guard !authStore.uid.isEmpty else {
-            print("❌ uidが空なので写真アップロードできない（ログイン待ち）")
-            return
-        }
-
         // ✅ trip中じゃないと保存しない
-        guard let tripId = currentTripId else {
+        guard let _ = currentTripId else {
             print("❌ tripIdが無い（旅開始前）")
             return
         }
@@ -468,34 +462,36 @@ struct StartView: View {
         }
 
         let noteId = UUID()
+        let filename = "photo_\(noteId.uuidString).jpg"
 
-        Task {
-            do {
-                // ✅ まずアップロード（ここで成功した path を使う）
-                let path = try await tripStore.uploadPhotoJPEG(imageData, tripId: tripId, noteId: noteId)
-                print("✅ uploaded path =", path)
-
-                // ✅ UI更新はMainActorで
-                await MainActor.run {
-                    locationManager.notes.append(
-                        TravelNote(
-                            type: .photo,
-                            latitude: loc.coordinate.latitude,
-                            longitude: loc.coordinate.longitude,
-                            date: Date(),
-                            text: nil,
-                            photoFilename: path
-                        )
-                    )
-                    print("📍 photo note lat/lon =", loc.coordinate.latitude, loc.coordinate.longitude)
-                    print("🧾 notes.count =", locationManager.notes.count)
-                }
-
-            } catch {
-                print("uploadPhotoJPEG error:", error)
-            }
+        // ✅ ローカル保存（ここが本体）
+        do {
+            try LocalPhotoStore.saveJPEG(imageData, filename: filename)
+            print("✅ saved local photo =", filename)
+        } catch {
+            print("❌ save local photo error:", error)
+            return
         }
+
+        // ✅ ノート追加（Firestoreには“ファイル名”だけ保存される）
+        locationManager.notes.append(
+            TravelNote(
+                type: .photo,
+                latitude: loc.coordinate.latitude,
+                longitude: loc.coordinate.longitude,
+                date: Date(),
+                steps: steps,
+                distanceMeters: currentDistance,
+                text: nil,
+                photoFilename: filename,
+                id: noteId
+            )
+        )
+
+        print("📍 photo note lat/lon =", loc.coordinate.latitude, loc.coordinate.longitude)
+        print("🧾 notes.count =", locationManager.notes.count)
     }
+
 }
 
 // MARK: - Sheets / Dialog をまとめて軽量化

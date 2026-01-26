@@ -116,13 +116,13 @@ struct FriendTripDetailView: View {
         ForEach(sortedNotesForList) { note in
             Button { selectedNote = note } label: {
                 HStack(spacing: 12) {
-                    if note.type == .photo, let fn = note.photoFilename {
-                        FriendRemotePhotoThumbnail(path: fn)
+                    if note.type == .photo {
+                        Image(systemName: "camera.fill")
                             .frame(width: 56, height: 56)
-                            .clipped()
+                            .background(.thinMaterial)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                     } else {
-                        Image(systemName: note.type == .photo ? "camera.fill" : "text.bubble.fill")
+                        Image(systemName: "text.bubble.fill")
                             .frame(width: 56, height: 56)
                             .background(.thinMaterial)
                             .clipShape(RoundedRectangle(cornerRadius: 10))

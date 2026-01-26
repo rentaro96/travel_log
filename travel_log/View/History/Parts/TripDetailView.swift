@@ -150,7 +150,7 @@ struct TripDetailView: View {
                 HStack(spacing: 12) {
                     if note.type == .photo,
                        let fn = note.photoFilename {
-                        RemotePhotoThumbnail(path: fn)
+                        LocalPhotoThumbnail(filename: fn)
                             .frame(width: 56, height: 56)
                             .clipped()
                             .clipShape(RoundedRectangle(cornerRadius: 10))
