@@ -15,6 +15,8 @@ final class AuthStore: ObservableObject {
     @Published var uid: String = ""
     @Published var friendCode: String = ""
     @Published var status: String = "未ログイン"
+    @Published var blockedUids: Set<String> = []
+
 
     private let db = Firestore.firestore()
 
@@ -53,12 +55,23 @@ final class AuthStore: ObservableObject {
             let snapshot = try await ref.getDocument()
 
             // ✅ 既に users/{uid} がある → friendCode を読む（固定）
-            if snapshot.exists,
-               let code = snapshot.data()?["friendCode"] as? String,
-               !code.isEmpty {
-                friendCode = code
+            if snapshot.exists {
+                let data = snapshot.data() ?? [:]
+
+                if let code = data["friendCode"] as? String, !code.isEmpty {
+                    friendCode = code
+                }
+
+                // ✅ blockedUids 読み込み
+                if let arr = data["blockedUids"] as? [String] {
+                    blockedUids = Set(arr)
+                } else {
+                    blockedUids = []
+                }
+
                 return
             }
+
 
             // ✅ 無ければ生成して保存（1回だけ）
             let code = generateFriendCode(length: 6)
@@ -69,6 +82,7 @@ final class AuthStore: ObservableObject {
             let data: [String: Any] = [
                 "friendCode": code,
                 "displayName": initialDisplayName,
+                "blockedUids": [],
                 "createdAt": FieldValue.serverTimestamp()
                 
             ]
@@ -82,6 +96,33 @@ final class AuthStore: ObservableObject {
             print("❌ Firestore create/read 失敗:", error)
         }
     }
+    
+    func block(uid targetUid: String) async throws {
+        guard !uid.isEmpty else { return }
+        let ref = db.collection("users").document(uid)
+        try await ref.setData([
+            "blockedUids": FieldValue.arrayUnion([targetUid]),
+            "updatedAt": FieldValue.serverTimestamp()
+        ], merge: true)
+
+        blockedUids.insert(targetUid)
+    }
+
+    func unblock(uid targetUid: String) async throws {
+        guard !uid.isEmpty else { return }
+        let ref = db.collection("users").document(uid)
+        try await ref.setData([
+            "blockedUids": FieldValue.arrayRemove([targetUid]),
+            "updatedAt": FieldValue.serverTimestamp()
+        ], merge: true)
+
+        blockedUids.remove(targetUid)
+    }
+
+    func isBlocked(_ otherUid: String) -> Bool {
+        blockedUids.contains(otherUid)
+    }
+
 
     private func generateFriendCode(length: Int = 6) -> String {
         let chars = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") // 0/O,1/I除外

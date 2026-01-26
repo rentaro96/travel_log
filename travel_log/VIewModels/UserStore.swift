@@ -11,15 +11,52 @@ import FirebaseFirestore
 
 @MainActor
 final class UserStore: ObservableObject {
-
+    
     @Published private(set) var friends: [UserPublic] = []
     @Published private(set) var friendLinks: [FriendLink] = []
-
+    
     private let db = Firestore.firestore()
     private var listener: ListenerRegistration?
     private var uid: String?
-
+    
     deinit { listener?.remove() }
+    
+    func blockUser(myUid: String, targetUid: String) async throws {
+        guard !myUid.isEmpty, !targetUid.isEmpty else { return }
+        guard myUid != targetUid else { return }
+        
+        let myBlockedRef = db.collection("users").document(myUid)
+            .collection("blocked").document(targetUid)
+        
+        let targetBlockedMeRef = db.collection("users").document(targetUid)
+            .collection("blockedBy").document(myUid) // 任意（管理用）
+        
+        // フレンド相互解除（あなたのフレンド構造に合わせてパス調整）
+        let myFriendRef = db.collection("users").document(myUid)
+            .collection("friends").document(targetUid)
+        
+        let targetFriendRef = db.collection("users").document(targetUid)
+            .collection("friends").document(myUid)
+        
+        let batch = db.batch()
+        
+        // ブロック登録
+        batch.setData([
+            "createdAt": FieldValue.serverTimestamp()
+        ], forDocument: myBlockedRef, merge: true)
+        
+        // 任意：相手側に「ブロックされた記録」を残す（なくてもOK）
+        batch.setData([
+            "createdAt": FieldValue.serverTimestamp()
+        ], forDocument: targetBlockedMeRef, merge: true)
+        
+        // 相互フレンド解除
+        batch.deleteDocument(myFriendRef)
+        batch.deleteDocument(targetFriendRef)
+        
+        try await batch.commit()
+    }
+
     
     func updateDisplayName(myUid: String, displayName: String) async throws {
         try await db.collection("users")
@@ -67,6 +104,55 @@ final class UserStore: ObservableObject {
 
             }
     }
+    
+    func submitReport(
+        reporterUid: String,
+        targetUid: String,
+        targetFriendCode: String?,
+        reason: ReportReason,
+        detail: String?
+    ) async throws {
+        guard !reporterUid.isEmpty, !targetUid.isEmpty else { return }
+
+        var data: [String: Any] = [
+            "reporterUid": reporterUid,
+            "targetUid": targetUid,
+            "reason": reason.rawValue,
+            "createdAt": FieldValue.serverTimestamp()
+        ]
+
+        if let targetFriendCode { data["targetFriendCode"] = targetFriendCode }
+        if let detail, !detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            data["detail"] = detail
+        }
+
+        try await db.collection("reports").addDocument(data: data)
+    }
+
+    
+    func removeFriend(myUid: String, friendUid: String) async throws {
+            guard !myUid.isEmpty, !friendUid.isEmpty else { return }
+
+            // 自分側: users/{myUid}/friends/{friendUid}
+            let myFriendRef = db.collection("users")
+                .document(myUid)
+                .collection("friends")
+                .document(friendUid)
+
+            // 相手側: users/{friendUid}/friends/{myUid}
+            let theirFriendRef = db.collection("users")
+                .document(friendUid)
+                .collection("friends")
+                .document(myUid)
+
+            // ✅ 2つ同時に削除（片方失敗したらエラーで分かる）
+            async let a: Void = myFriendRef.delete()
+            async let b: Void = theirFriendRef.delete()
+            _ = try await (a, b)
+
+            // UI上でも即消す（listenerがあるなら後で同期されるけど体感が良い）
+            friends.removeAll { $0.uid == friendUid }
+        }
 
     private func fetchFriendUsers(friendUIDs: [String]) async {
         // 空ならクリア
