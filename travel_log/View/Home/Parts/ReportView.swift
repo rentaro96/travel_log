@@ -64,14 +64,17 @@ struct ReportView: View {
     }
 
     private func send() async {
-        guard !reporterUid.isEmpty, !target.uid.isEmpty else { return }
+        guard !reporterUid.isEmpty,
+              let targetUid = target.uid, !targetUid.isEmpty
+        else { return }
+
         isSending = true
         defer { isSending = false }
 
         do {
             try await db.collection("reports").addDocument(data: [
                 "reporterUid": reporterUid,
-                "targetUid": target.uid,
+                "targetUid": targetUid,             // ✅ ここはString
                 "reason": reason,
                 "detail": detail,
                 "createdAt": FieldValue.serverTimestamp(),
@@ -83,4 +86,5 @@ struct ReportView: View {
             message = "送信に失敗しました: \(error.localizedDescription)"
         }
     }
+
 }

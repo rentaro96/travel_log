@@ -33,10 +33,11 @@ struct FriendProfileView: View {
                         .foregroundStyle(.secondary)
 
                     // 小：uid
-                    Text(user.uid)
+                    Text(user.uid ?? "")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                         .padding(.top, 2)
+
                 }
                 .padding(.top, 20)
 
@@ -70,7 +71,9 @@ struct FriendProfileView: View {
         .navigationTitle("プロフィール")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            tripStore.bind(friendUid: user.uid)
+            guard let uid = user.uid, !uid.isEmpty else { return }
+            tripStore.bind(friendUid: uid)
         }
+
     }
 }

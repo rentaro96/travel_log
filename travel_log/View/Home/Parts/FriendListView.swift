@@ -8,16 +8,23 @@ struct FriendListView: View {
     @State private var selectedUser: UserPublic? = nil
     @State private var showReportSheet = false
 
-    // フレンド一覧（ブロック対象は除外）
-    private var visibleFriends: [UserPublic] {
-        userStore.friends.filter { !authStore.isBlocked($0.uid) }
+    // ✅ UserStoreのblockedUsersを正にする（uidが空のものは除外）
+    private var blockedUidSet: Set<String> {
+        Set(userStore.blockedUsers.compactMap { $0.uid }.filter { !$0.isEmpty })
     }
+
+
+    private var visibleFriends: [UserPublic] {
+        userStore.friends.filter { friend in
+            guard let uid = friend.uid, !uid.isEmpty else { return false }
+            return !blockedUidSet.contains(uid)
+        }
+    }
+
 
     var body: some View {
         NavigationStack {
             List {
-
-                // ===== フレンド =====
                 Section("フレンド") {
                     if visibleFriends.isEmpty {
                         Text("フレンドがいません")
@@ -32,10 +39,11 @@ struct FriendListView: View {
                             .contextMenu {
                                 Button("ブロック", role: .destructive) {
                                     Task {
-                                        try? await authStore.block(uid: user.uid)
-                                        await reloadBlocked()
+                                        guard let uid = user.uid, !uid.isEmpty else { return }
+                                        try? await authStore.block(uid: uid)
                                     }
                                 }
+
 
                                 Button("報告") {
                                     selectedUser = user
@@ -44,18 +52,16 @@ struct FriendListView: View {
 
                                 Button("削除", role: .destructive) {
                                     Task {
-                                        try? await userStore.removeFriend(
-                                            myUid: authStore.uid,
-                                            friendUid: user.uid
-                                        )
+                                        guard let uid = user.uid, !uid.isEmpty else { return }
+                                        try? await userStore.removeFriend(myUid: authStore.uid, friendUid: uid)
                                     }
                                 }
+
                             }
                         }
                     }
                 }
 
-                // ===== ブロック中 =====
                 Section("ブロック中") {
                     if userStore.blockedUsers.isEmpty {
                         Text("ブロック中のユーザーはいません")
@@ -66,10 +72,11 @@ struct FriendListView: View {
                                 .contextMenu {
                                     Button("ブロック解除") {
                                         Task {
-                                            try? await authStore.unblock(uid: user.uid)
-                                            await reloadBlocked()
+                                            guard let uid = user.uid, !uid.isEmpty else { return }
+                                            try? await authStore.unblock(uid: uid)
                                         }
                                     }
+
                                 }
                         }
                     }
@@ -83,14 +90,13 @@ struct FriendListView: View {
             }
             .task {
                 guard !authStore.uid.isEmpty else { return }
+
                 userStore.bindUser(uid: authStore.uid)
+                
+                userStore.bindBlockedUsers(myUid: authStore.uid)
+
+                // ✅ 初回だけは即1回フェッチして表示を早くする（任意）
                 await reloadBlocked()
-            }
-            // blockedUids が変わったら再取得
-            .onChange(of: authStore.blockedUids) { _, _ in
-                Task {
-                    await reloadBlocked()
-                }
             }
             .sheet(isPresented: $showReportSheet) {
                 if let user = selectedUser {
@@ -100,13 +106,10 @@ struct FriendListView: View {
         }
     }
 
-    // ===== 共通行UI =====
     @ViewBuilder
     private func friendRow(user: UserPublic) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(user.displayName?.isEmpty == false
-                 ? user.displayName!
-                 : "名前未設定")
+            Text(user.displayName?.isEmpty == false ? user.displayName! : "名前未設定")
                 .font(.headline)
 
             Text("ID: \(user.friendCode)")
@@ -115,11 +118,8 @@ struct FriendListView: View {
         }
     }
 
-    // ===== ブロック一覧再取得 =====
     @MainActor
     private func reloadBlocked() async {
-        await userStore.fetchBlockedUsers(
-            blockedUids: Array(authStore.blockedUids)
-        )
+        await userStore.fetchBlockedUsers(blockedUids: Array(authStore.blockedUids))
     }
 }

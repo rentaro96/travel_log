@@ -1,13 +1,10 @@
 import Foundation
 import FirebaseFirestore
 
-struct UserPublic: Codable, Identifiable {
-    @DocumentID var docId: String?
-    let uid: String               // ✅ 必須
-    let friendCode: String
-    let displayName: String?
-    let createdAt: Date?
-
-    var id: String { uid }
+struct UserPublic: Identifiable, Codable {
+    @DocumentID var uid: String?   // ← docIdから入る
+    var displayName: String?
+    var friendCode: String
+    var id: String { uid ?? UUID().uuidString }
 }
 

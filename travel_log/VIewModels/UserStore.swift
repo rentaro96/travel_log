@@ -21,52 +21,59 @@ final class UserStore: ObservableObject {
     private var listener: ListenerRegistration?
     private var uid: String?
     
-    deinit { listener?.remove() }
-    
-    func bindBlockedUsers(myUid: String) {
-        let ref = db.collection("users").document(myUid).collection("blocked")
+    private var blockedListener: ListenerRegistration?
 
-        ref.addSnapshotListener { [weak self] snap, err in
+    deinit {
+        listener?.remove()
+        blockedListener?.remove()
+    }
+
+    func bindBlockedUsers(myUid: String) {
+        blockedListener?.remove()
+
+        let ref = db.collection("users").document(myUid).collection("blocked")
+        blockedListener = ref.addSnapshotListener { [weak self] snap, err in
             if let err = err {
                 print("❌ bindBlockedUsers error:", err)
                 return
             }
             let ids = snap?.documents.map { $0.documentID } ?? []
-
             Task { [weak self] in
-                await self?.fetchBlockedUsers(blockedUids: ids) // ✅ これでOK
+                await self?.fetchBlockedUsers(blockedUids: ids)
             }
         }
     }
+
 
     func fetchBlockedUsers(blockedUids: [String]) async {
         print("✅ fetchBlockedUsers called blockedUids =", blockedUids)
 
         guard !blockedUids.isEmpty else {
-            print("✅ blockedUids empty -> blockedUsers = []")
             blockedUsers = []
             return
         }
 
         do {
             var results: [UserPublic] = []
-            let chunks = blockedUids.chunked(into: 10)
 
-            for chunk in chunks {
+            for chunk in blockedUids.chunked(into: 10) {
                 print("🔎 querying users_public docID in:", chunk)
+                
+                let test = try await db.collection("users_public")
+                        .document(chunk[0])
+                        .getDocument()
+                    print("🧪 direct get exists =", test.exists, "docId =", chunk[0])
 
                 let snap = try await db.collection("users_public")
-                    .whereField("uid", in: chunk)
+                    .whereField(FieldPath.documentID(), in: chunk)
                     .getDocuments()
                 
-
-
                 print("📄 snap.count =", snap.documents.count)
+                print("📄 docIDs =", snap.documents.map { $0.documentID })
 
                 let users: [UserPublic] = snap.documents.compactMap { doc in
                     do {
-                        let u = try doc.data(as: UserPublic.self)
-                        return u
+                        return try doc.data(as: UserPublic.self) // uidは@DocumentIDで入る
                     } catch {
                         print("❌ decode failed docId=\(doc.documentID):", error)
                         print("📦 raw data:", doc.data())
@@ -77,15 +84,27 @@ final class UserStore: ObservableObject {
                 results.append(contentsOf: users)
             }
 
-            let map = Dictionary(uniqueKeysWithValues: results.map { ($0.uid, $0) })
-            blockedUsers = blockedUids.compactMap { map[$0] }
+            let map: [String: UserPublic] = Dictionary(
+                uniqueKeysWithValues: results.compactMap { u -> (String, UserPublic)? in
+                    guard let uid = u.uid else { return nil }   // uidがString?の前提
+                    return (uid, u)
+                }
+            )
+            
+            
 
+
+            blockedUsers = blockedUids.compactMap { map[$0] }
             print("✅ blockedUsers.count =", blockedUsers.count)
 
         } catch {
             print("❌ fetchBlockedUsers error:", error)
+        
+            print("❌ fetchBlockedUsers error:", error)
+
         }
     }
+
 
 
 
@@ -256,11 +275,12 @@ final class UserStore: ObservableObject {
 
             // friendLinksの順番に合わせて並び替え（表示が安定する）
             let map: [String: UserPublic] = Dictionary(
-                uniqueKeysWithValues: result.compactMap { u -> (String, UserPublic)? in
-                    // id が nil の時に備えて uid をキーに使う（確実にString）
-                    return (u.uid, u)
+                uniqueKeysWithValues: result.compactMap { u in
+                    guard let uid = u.uid else { return nil }
+                    return (uid, u)
                 }
             )
+
 
             self.friends = friendUIDs.compactMap { map[$0] }
 
@@ -286,3 +306,4 @@ private extension Array {
         return res
     }
 }
+
