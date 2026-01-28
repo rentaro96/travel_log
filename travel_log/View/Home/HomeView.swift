@@ -27,7 +27,10 @@ struct HomeView: View {
 
                     CustomButton(title: "使い方！", action: { print("とろろ") })
 
-                    CustomNavButton(title: "友達を追加", destination: FriendAddView())
+                    CustomNavButton(
+                        title: "友達を追加",
+                        destination: FriendAddView(initialFriendCode: "")
+                    )
 
                     // ✅ ここを「設定シートを開く」に変更
                     CustomButton(title: "設定", action: {

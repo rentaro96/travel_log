@@ -130,9 +130,6 @@ struct StartView: View {
         .onAppear {
             tripStore.setUID(authStore.uid)
         }
-        .onChange(of: authStore.uid) { _, newValue in
-            tripStore.setUID(newValue)
-        }
     }
 
     private var controlSection: some View {

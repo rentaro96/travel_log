@@ -57,17 +57,12 @@ final class UserStore: ObservableObject {
             var results: [UserPublic] = []
 
             for chunk in blockedUids.chunked(into: 10) {
-                print("🔎 querying users_public docID in:", chunk)
-                
-                let test = try await db.collection("users_public")
-                        .document(chunk[0])
-                        .getDocument()
-                    print("🧪 direct get exists =", test.exists, "docId =", chunk[0])
+                print("🔎 querying users docID in:", chunk)
 
-                let snap = try await db.collection("users_public")
+                let snap = try await db.collection("users")
                     .whereField(FieldPath.documentID(), in: chunk)
                     .getDocuments()
-                
+
                 print("📄 snap.count =", snap.documents.count)
                 print("📄 docIDs =", snap.documents.map { $0.documentID })
 
@@ -86,24 +81,19 @@ final class UserStore: ObservableObject {
 
             let map: [String: UserPublic] = Dictionary(
                 uniqueKeysWithValues: results.compactMap { u -> (String, UserPublic)? in
-                    guard let uid = u.uid else { return nil }   // uidがString?の前提
+                    guard let uid = u.uid else { return nil }
                     return (uid, u)
                 }
             )
-            
-            
-
 
             blockedUsers = blockedUids.compactMap { map[$0] }
             print("✅ blockedUsers.count =", blockedUsers.count)
 
         } catch {
             print("❌ fetchBlockedUsers error:", error)
-        
-            print("❌ fetchBlockedUsers error:", error)
-
         }
     }
+
 
 
 

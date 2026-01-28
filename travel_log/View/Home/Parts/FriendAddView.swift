@@ -10,9 +10,14 @@ import SwiftUI
 struct FriendAddView: View {
     //@StateObject private var authStore = AuthStore()
     @EnvironmentObject var authStore: AuthStore
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var userStore: UserStore
     @StateObject private var friendVM = FriendViewModel()
     @StateObject private var requestsVM = FriendRequestsViewModel()
     @State private var showFriendList = false
+    
+    let initialFriendCode: String
+
 
     @State private var inputCode: String = ""
 
@@ -149,6 +154,13 @@ struct FriendAddView: View {
                                     // userStoreはEnvironmentObjectで流してるなら不要だけど、
                                     // もし事故るなら .environmentObject(userStore) を足す
                             }
+                            .onAppear {
+                                // ✅ トーストから来た場合、最初から入力しておく
+                                if inputCode.isEmpty, !initialFriendCode.isEmpty {
+                                    inputCode = initialFriendCode
+                                }
+                            }
+
             .task {
                 guard !authStore.uid.isEmpty else { return }
                 requestsVM.startListening(myUid: authStore.uid)
@@ -170,5 +182,8 @@ struct FriendAddView: View {
 
 
 #Preview {
-    FriendAddView()
+    FriendAddView(initialFriendCode: "A7K9Q2")
+        .environmentObject(AuthStore())
+        .environmentObject(UserStore())
 }
+

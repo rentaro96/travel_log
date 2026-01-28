@@ -37,9 +37,6 @@ struct ContentView: View {
                     await authStore.signInIfNeeded()
                     tripStore.setUID(authStore.uid.isEmpty ? nil : authStore.uid)
                 }
-                .onChange(of: authStore.uid) { newUID in
-                    tripStore.setUID(newUID.isEmpty ? nil : newUID)
-                }
             }
         }
 
