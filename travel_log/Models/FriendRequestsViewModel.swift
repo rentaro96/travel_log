@@ -60,6 +60,57 @@ final class FriendRequestsViewModel: ObservableObject {
         listener?.remove()
         listener = nil
     }
+    
+    func addFriendInstantly(myUid: String, friendCode: String) async {
+        message = ""
+        guard !myUid.isEmpty else { message = "ログインできてない"; return }
+
+        let code = friendCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !code.isEmpty else { message = "フレンドIDを入力してね"; return }
+
+        do {
+            let snap = try await db.collection("users_public")
+                .whereField("friendCode", isEqualTo: code)
+                .limit(to: 1)
+                .getDocuments()
+
+            guard let doc = snap.documents.first else {
+                message = "そのフレンドIDは見つからない"
+                return
+            }
+
+            let friendUid = doc.documentID
+            guard friendUid != myUid else {
+                message = "自分とは友達になれないよ"
+                return
+            }
+
+            // ✅ 安全のため：あなたのiPhoneのIDだけ許可
+            
+
+            let batch = db.batch()
+
+            let myFriendRef = db.collection("users")
+                .document(myUid)
+                .collection("friends")
+                .document(friendUid)
+
+            let friendFriendRef = db.collection("users")
+                .document(friendUid)
+                .collection("friends")
+                .document(myUid)
+
+            batch.setData(["createdAt": FieldValue.serverTimestamp()], forDocument: myFriendRef)
+            batch.setData(["createdAt": FieldValue.serverTimestamp()], forDocument: friendFriendRef)
+
+            try await batch.commit()
+            message = "✅ 友達になった！（デモモード）"
+        } catch {
+            message = "友達追加失敗: \(error.localizedDescription)"
+            print(error)
+        }
+    }
+
 
     func accept(request: FriendRequest, myUid: String) async {
         message = ""

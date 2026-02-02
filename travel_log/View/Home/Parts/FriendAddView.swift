@@ -15,6 +15,7 @@ struct FriendAddView: View {
     @StateObject private var friendVM = FriendViewModel()
     @StateObject private var requestsVM = FriendRequestsViewModel()
     @State private var showFriendList = false
+    @EnvironmentObject var adminMode: AdminMode
     
     let initialFriendCode: String
 
@@ -66,16 +67,37 @@ struct FriendAddView: View {
                         .autocorrectionDisabled(true)
                         .textFieldStyle(.roundedBorder)
 
-                    Button("フレンド申請を送る") {
+                    Button(adminMode.enabled ? "デモ：即友達になる" : "フレンド申請を送る") {
                         Task {
-                            await friendVM.sendFriendRequest(
-                                myUid: authStore.uid,
-                                myFriendCode: authStore.friendCode,
-                                friendCode: inputCode
-                            )
+                            let myUid = authStore.uid
+
+                            if adminMode.enabled {
+                                // ✅ デモモード：即友達成立
+                                await requestsVM.addFriendInstantly(
+                                    myUid: myUid,
+                                    friendCode: inputCode
+                                )
+                            } else {
+                                // ✅ 通常モード：申請送信
+                                await friendVM.sendFriendRequest(
+                                    myUid: myUid,
+                                    myFriendCode: authStore.friendCode,
+                                    friendCode: inputCode
+                                )
+                            }
                         }
                     }
                     .buttonStyle(.borderedProminent)
+                    .tint(adminMode.enabled ? .green : .blue)
+                    
+                    if adminMode.enabled {
+                        Text("🧪 デモモード中：承認なしで即友達になります")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+
+
                 }
 
                 if !friendVM.message.isEmpty {

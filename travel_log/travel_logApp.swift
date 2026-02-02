@@ -29,6 +29,8 @@ struct YourApp: App {
     
     @StateObject private var userStore = UserStore()
     
+    @StateObject private var adminMode = AdminMode()
+    
     
     var body: some Scene {
         WindowGroup {
@@ -37,6 +39,7 @@ struct YourApp: App {
                 .environmentObject(authStore)
                 .environmentObject(userStore)
                 .environmentObject(UserStore())
+                .environmentObject(adminMode)
 
                 .task {
                     await authStore.signInIfNeeded()
