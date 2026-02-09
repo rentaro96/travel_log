@@ -6,7 +6,6 @@ struct FriendListView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedUser: UserPublic? = nil
-    @State private var showReportSheet = false
     @State private var pendingFriendCode: String? = nil
     @State private var showFriendAddSheet = false
     @State private var toastMessage = ""
@@ -48,7 +47,7 @@ struct FriendListView: View {
                                     
                                     Button("報告") {
                                         selectedUser = user
-                                        showReportSheet = true
+                                        //showReportSheet = true
                                     }
                                     
                                     Button("削除", role: .destructive) {
@@ -145,6 +144,13 @@ struct FriendListView: View {
                     .environmentObject(userStore)
             }
             
+            .sheet(item: $selectedUser, onDismiss: {
+                selectedUser = nil
+            }) { user in
+                ReportView(target: user, reporterUid: authStore.uid)
+                    .environmentObject(authStore)
+                    .environmentObject(userStore)
+            }
 
         }
     }

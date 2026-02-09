@@ -12,7 +12,7 @@ struct HomeView: View {
         NavigationStack {
             ZStack {
                 Color.customBackgroundColor
-                    .ignoresSafeArea(edges: [.horizontal])
+                    .ignoresSafeArea(edges: [.top, .bottom, .horizontal])
 
                 ScrollView {
                     VStack(spacing: 30) {
