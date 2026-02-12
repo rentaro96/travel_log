@@ -17,6 +17,8 @@ struct SettingView: View {
     @State private var displayName: String = ""
     @State private var message: String = ""
     @State private var showDemoButton: Bool = false
+    @State private var showTerms = false
+    @State private var showContact = false
 
     // 🔐 管理者だけが知っているパスワード（仮）
     private let adminPassword = "ADMIN-96"
@@ -40,6 +42,13 @@ struct SettingView: View {
                         }
                     }
                 }
+            }
+            
+            Button("利用規約") {
+                showTerms = true
+            }
+            Button("お問い合わせ") {
+                showContact = true
             }
 
             if !message.isEmpty {
@@ -78,6 +87,14 @@ struct SettingView: View {
         .onAppear {
             // 既存の表示名を初期表示したい場合は、authStoreに持たせる or users/{uid} を読んで入れる
             
+        }
+        
+        .sheet(isPresented: $showTerms) {
+            SafariView(url: URL(string: "https://www.notion.so/12be9fd05ecc8080b8b8e8a99c3a0886?source=copy_link")!)
+        }
+        
+        .sheet(isPresented: $showContact) {
+            SafariView(url: URL(string: "https://forms.gle/pwWTLvx4DKGJdw7o7")!)
         }
         .scrollContentBackground(.hidden)   // Formの半透明を消す
                 .navigationTitle("設定")

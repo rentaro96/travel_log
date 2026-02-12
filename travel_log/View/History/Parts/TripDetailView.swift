@@ -12,11 +12,14 @@ import CoreLocation
 struct TripDetailView: View {
     let trip: Trip
     @EnvironmentObject var tripStore: TripStore
+    @Environment(\.dismiss) private var dismiss
+
 
     @State private var position: MapCameraPosition = .automatic
     @State private var hasCenteredOnce = false
     @State private var selectedNote: TravelNote? = nil
     @State private var isPublicState: Bool = false
+    @State private var showDeleteAlert = false
 
 
     // ✅ 表示用に軽量化したデータ（UIは同じ、描画だけ軽くなる）
@@ -103,6 +106,34 @@ struct TripDetailView: View {
             NoteDetailSheet(note: note)
                 .environmentObject(tripStore)
         }
+        .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button(role: .destructive) {
+                                showDeleteAlert = true
+                            } label: {
+                                Label("この旅を削除", systemImage: "trash")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                    }
+                }
+                .alert("この旅を削除しますか？", isPresented: $showDeleteAlert) {
+                    Button("削除", role: .destructive) {
+                        Task {
+                            do {
+                                try await tripStore.deleteTrip(trip) // ✅ 既存の削除処理
+                                dismiss() // ✅ 削除後に前の画面へ戻る（重要）
+                            } catch {
+                                print("deleteTrip error:", error)
+                            }
+                        }
+                    }
+                    Button("キャンセル", role: .cancel) {}
+                } message: {
+                    Text("削除すると元に戻せません。")
+                }
     }
 
     // MARK: - Map Content
