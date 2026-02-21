@@ -9,7 +9,8 @@ import SwiftUI
 
 struct HistoryView: View {
     @State private var navigateToHistoryMap = false
-
+    @State private var showAlert = false
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -38,13 +39,20 @@ struct HistoryView: View {
                             .frame(width: 350, height: 180)
                     }
                     
+                    
                     Button(action: {
                         let generator = UIImpactFeedbackGenerator(style: .light)
                         generator.impactOccurred()
+                        showAlert = true
                     }) {
                         Image("tabirogu4")
                             .resizable()
                             .frame(width: 350, height: 180)
+                    }
+                    .alert("現在利用できません", isPresented: $showAlert) {
+                        Button("OK", role: .cancel) { }
+                    } message: {
+                        Text("この機能は現在準備中です。次のアップデートで追加予定です。")
                     }
                     
                     Spacer(minLength: 120)
@@ -55,6 +63,7 @@ struct HistoryView: View {
         }
     }
 }
+
 
 #Preview {
     HistoryView()
