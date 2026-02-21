@@ -6,6 +6,7 @@ struct HomeView: View {
     @EnvironmentObject var userStore: UserStore
 
     @State private var showSettings = false
+    @State private var showAlert = false
     @Environment(\.horizontalSizeClass) private var hSize
 
     var body: some View {
@@ -25,7 +26,14 @@ struct HomeView: View {
                            // .frame(maxWidth: 350)   // ✅ iPadでもデカくなりすぎない
                             .padding(.top, 10)
 
-                        CustomButton(title: "使い方！", action: { print("とろろ") })
+                        CustomButton(title: "使い方！") {
+                            showAlert = true
+                        }
+                        .alert("現在利用できません", isPresented: $showAlert) {
+                            Button("OK", role: .cancel) { }
+                        } message: {
+                            Text("この機能は現在準備中です。次のアップデートで追加予定です。")
+                        }
 
                         CustomNavButton(
                             title: "友達を追加",
