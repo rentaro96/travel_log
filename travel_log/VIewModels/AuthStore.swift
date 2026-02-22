@@ -29,23 +29,33 @@ final class AuthStore: ObservableObject {
         isBanned = false
         banReason = ""
         
+        // ✅ 端末BANがあるならFirebaseで解除されたか確認
+        if let current = Auth.auth().currentUser {
+            uid = current.uid
+
+            if await syncBanStateFromFirebase(uid: uid) { return }
+
+            await createUserIfNeeded()
+            status = "ログイン済み"
+            return
+        }
         // ✅ 端末BAN中ならログイン処理を止める（新規アカ作成を防ぐ）
+        // ✅ 端末BANがあれば「一旦」BAN画面にする（ただしreturnしない）
         if deviceBanned {
             isBanned = true
             banReason = deviceBanReason
-            status = "この端末は利用停止中です"
-
-            // ✅ BAN画面用に friendCode も復元
+            status = "利用停止確認中…"
             friendCode = deviceBanFriendCode
-
-            return
         }
 
         if let current = Auth.auth().currentUser {
             uid = current.uid
 
-            // ✅ BANチェック（最優先）
-            if await checkAndHandleBanIfNeeded() { return }
+            // ✅ FirebaseからBAN状態を確認（最優先）
+            if await syncBanStateFromFirebase(uid: uid) {
+                // ✅ BAN中なら、ログイン状態は保ったまま止める
+                return
+            }
 
             await createUserIfNeeded()
             status = "ログイン済み"
@@ -56,13 +66,17 @@ final class AuthStore: ObservableObject {
         do {
             let result = try await Auth.auth().signInAnonymously()
             uid = result.user.uid
-
-            // ✅ BANチェック（最優先）
-            if await checkAndHandleBanIfNeeded() { return }
-
+            
+            // ✅ FirebaseからBAN状態を確認（統一）
+            if await syncBanStateFromFirebase(uid: uid) {
+                // ✅ BAN中なら止める（ログアウトしない）
+                return
+            }
+            
             await createUserIfNeeded()
             status = "匿名ログイン成功"
-        } catch {
+            
+        }catch {
             status = "ログイン失敗: \(error.localizedDescription)"
             print("❌ 匿名ログイン失敗:", error)
         }
@@ -267,11 +281,58 @@ final class AuthStore: ObservableObject {
             print("❌ friendCode取得失敗:", error)
         }
     }
+    
+    // ✅ Firebaseの banned_users を確認して、端末BANも同期する
+    private func syncBanStateFromFirebase(uid: String) async -> Bool {
+        guard !uid.isEmpty else { return false }
+
+        do {
+            let snap = try await db.collection("banned_users").document(uid).getDocument()
+
+            if snap.exists {
+                // BAN中 → Firebase情報を採用して端末BANを更新
+                let data = snap.data() ?? [:]
+                let reason = data["reason"] as? String ?? ""
+
+                // friendCode を確実に取って保存（BAN画面表示用）
+                await fetchMyFriendCodeIfNeeded()
+                deviceBanFriendCode = friendCode
+
+                deviceBanned = true
+                deviceBanReason = reason
+                deviceBanUid = uid
+
+                isBanned = true
+                banReason = reason
+                status = "このアカウントは利用停止中です"
+                return true
+            } else {
+                // BAN解除 → 端末BANを自動解除
+                if deviceBanUid == uid {
+                    deviceBanned = false
+                    deviceBanReason = ""
+                    deviceBanUid = ""
+                    deviceBanFriendCode = ""
+                }
+
+                isBanned = false
+                banReason = ""
+                return false
+            }
+        } catch {
+            print("❌ BAN同期失敗:", error)
+            // 失敗時は「端末BANがあるならそれを信じる」でもOK
+            return deviceBanned
+        }
+    }
     // ✅ デモ用：端末BANを解除（本番では基本使わない）
     func clearLocalBanForDebug() {
         deviceBanned = false
         deviceBanReason = ""
         deviceBanUid = ""
+        deviceBanFriendCode = ""   // ←追加
+        friendCode = ""            // ←追加
+
         isBanned = false
         banReason = ""
         status = "利用停止を解除しました（端末）"
