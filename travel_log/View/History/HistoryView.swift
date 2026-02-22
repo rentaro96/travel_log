@@ -57,12 +57,13 @@ struct HistoryView: View {
                     
                     Spacer(minLength: 120)
                 }
-                .background(Color.customBackgroundColor)
+                .background(Color("backgroundcolor"))
                 .ignoresSafeArea()
             }
         }
     }
 }
+
 
 
 #Preview {
