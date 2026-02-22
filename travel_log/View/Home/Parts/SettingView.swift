@@ -19,6 +19,7 @@ struct SettingView: View {
     @State private var showDemoButton: Bool = false
     @State private var showTerms = false
     @State private var showContact = false
+    @State private var adminCommand: String = ""
 
     // 🔐 管理者だけが知っているパスワード（仮）
     private let adminPassword = "ADMIN-96"
@@ -79,6 +80,61 @@ struct SettingView: View {
                     } label: {
                         Label("デモモードを解除", systemImage: "xmark.seal")
                     }
+                }
+            }
+            
+            // ✅ デモモード中：管理者コマンド（BAN/解除）
+            if adminMode.enabled {
+                Section("管理者コマンド") {
+                    TextField("例: -D43KWR  /  +D43KWR  /  -D43KWR:spam", text: $adminCommand)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+
+                    Button("実行") {
+                        let text = adminCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !text.isEmpty else { return }
+
+                        // -CODE[:reason] → BAN
+                        if text.hasPrefix("-") {
+                            let body = String(text.dropFirst())
+                            let parts = body.split(separator: ":", maxSplits: 1)
+                            let code = String(parts[0]).uppercased()
+                            let reason = parts.count > 1 ? String(parts[1]) : "admin ban"
+
+                            Task {
+                                do {
+                                    try await authStore.adminBanByFriendCode(friendCode: code, reason: reason)
+                                    message = "BANしました: \(code)"
+                                    adminCommand = ""
+                                } catch {
+                                    message = "BAN失敗: \(error.localizedDescription)"
+                                }
+                            }
+                            return
+                        }
+
+                        // +CODE → UNBAN
+                        if text.hasPrefix("+") {
+                            let code = String(text.dropFirst()).uppercased()
+
+                            Task {
+                                do {
+                                    try await authStore.adminUnbanByFriendCode(friendCode: code)
+                                    message = "BAN解除しました: \(code)"
+                                    adminCommand = ""
+                                } catch {
+                                    message = "解除失敗: \(error.localizedDescription)"
+                                }
+                            }
+                            return
+                        }
+
+                        message = "コマンド形式が違います（-CODE / +CODE / -CODE:reason）"
+                    }
+
+                    Text("使い方: -friendCode でBAN、+friendCode で解除。理由付きは -friendCode:spam")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
 
